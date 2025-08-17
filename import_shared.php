@@ -17,7 +17,7 @@ $share_code = null;
 // Trường hợp: người dùng nhập link qua form
 if (isset($_POST['share_link']) && !isset($_GET['code'])) {
     $input_link = trim($_POST['share_link']);
-    
+
     // Trích xuất code từ URL
     $parsed = parse_url($input_link);
     if ($parsed && isset($parsed['query'])) {
@@ -30,7 +30,7 @@ if (isset($_POST['share_link']) && !isset($_GET['code'])) {
     } else {
         $message = 'Link không hợp lệ. Vui lòng nhập đúng định dạng URL.';
     }
-} 
+}
 // Trường hợp: truy cập trực tiếp bằng ?code=...
 elseif (isset($_GET['code'])) {
     $share_code = $_GET['code'];
@@ -60,17 +60,17 @@ if ($share_code) {
             'group_id' => $share['group_id']
         ];
         $share_owner = $share['share_user_id'];
-        $message = ''; // Xóa thông báo lỗi nếu hợp lệ
+        $message = '';  // Xóa thông báo lỗi nếu hợp lệ
     }
 }
 
 // Xử lý nhập sổ tay
 if (isset($_POST['import_notebook']) && isset($_POST['notebook_id']) && isset($_POST['share_code'])) {
-    $notebook_id = (int)$_POST['notebook_id'];
+    $notebook_id = (int) $_POST['notebook_id'];
     $share_code = $_POST['share_code'];
     $new_title = trim($_POST['title'] ?? '');
     $new_desc = trim($_POST['description'] ?? '');
-    $group_id = $_POST['group_id'] !== '' ? (int)$_POST['group_id'] : null;
+    $group_id = $_POST['group_id'] !== '' ? (int) $_POST['group_id'] : null;
 
     $stmt = $pdo->prepare('SELECT s.*, n.id as notebook_id FROM notebook_shares s JOIN notebooks n ON s.notebook_id = n.id WHERE s.share_code = ? AND n.id = ?');
     $stmt->execute([$share_code, $notebook_id]);
@@ -120,47 +120,96 @@ $groups = $stmt->fetchAll();
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            background: #f2f6fc;
-            font-family: 'Montserrat', sans-serif;
-            color: #333;
-        }
-        .navbar {
-            background: linear-gradient(to right, #5a61e5, #7bf4e0);
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-        }
-        .navbar-brand {
-            font-weight: 700;
-            font-size: 1.6rem;
-            color: white;
-        }
+    body {
+        background: #f4f6fb;
+        font-family: 'Inter', sans-serif;
+        color: #333;
+    }
+    .navbar {
+        background: linear-gradient(to right, #6f73ff, #48d9d6);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        padding: 0.75rem 0;
+    }
+    .navbar-brand {
+        font-weight: 700;
+        font-size: 1.6rem;
+        color: white !important;
+    }
+    .btn {
+        border-radius: 0.6rem !important;
+        font-weight: 500;
+        padding: 0.5rem 1rem;
+    }
+    .btn:hover {
+        opacity: 0.9;
+    }
+    .import-card {
+        background: #fff;
+        border-radius: 1.25rem;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.05);
+        padding: 2rem;
+        margin-top: 2.5rem;
+        max-width: 820px;
+        margin-left: auto;
+        margin-right: auto;
+        transition: all 0.3s ease-in-out;
+    }
+    h2, h5 {
+        font-weight: 600;
+        color: #333;
+    }
+    .link-input-group {
+        background: #f9f9f9;
+        border-radius: 1rem;
+        padding: 1.25rem;
+        border: 1.5px dashed #c3c7d4;
+    }
+    .link-input-group label {
+        font-weight: 500;
+    }
+    .link-input-group input {
+        border-radius: 0.6rem;
+        border: 1px solid #ccc;
+        padding: 0.6rem 0.9rem;
+    }
+    .card {
+        border: none;
+        border-radius: 1.25rem;
+        box-shadow: 0 6px 16px rgba(0,0,0,0.05);
+    }
+    .card-header {
+        background:rgb(134, 137, 241);
+        color: white;
+        font-weight: 600;
+        text: white;
+        border-top-left-radius: 1.25rem;
+        border-top-right-radius: 1.25rem;
+    }
+    .form-control, .form-select {
+        border-radius: 0.6rem;
+        border: 1px solid #ccc;
+        padding: 0.6rem 0.8rem;
+    }
+    .form-label {
+        font-weight: 500;
+        margin-bottom: 0.4rem;
+    }
+    .alert {
+        border-radius: 0.6rem;
+        font-size: 0.95rem;
+    }
+    textarea.form-control {
+        resize: vertical;
+    }
+    @media (max-width: 576px) {
         .import-card {
-            background: #ffffff;
-            border-radius: 1.5rem;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
-            padding: 2.5rem;
-            margin-top: 2rem;
-            max-width: 800px;
-            margin-left: auto;
-            margin-right: auto;
+            padding: 1.5rem;
         }
-        .link-input-group {
-            border: 2px dashed #b8c2cc;
-            border-radius: 0.75rem;
-            padding: 1rem;
+        h2 {
+            font-size: 1.4rem;
         }
-        .link-input-group input {
-            border-radius: 0.5rem;
-        }
-        .card-header {
-            background-color: #5a61e5;
-            color: white;
-        }
-        .btn-custom {
-            border-radius: 0.5rem;
-            padding: 0.6rem 1.2rem;
-        }
-    </style>
+    }
+</style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark">
@@ -179,7 +228,7 @@ $groups = $stmt->fetchAll();
 
     <div class="container mt-5 mb-5">
         <div class="import-card">
-            <h2 class="mb-4"><i class="bi bi-download"></i> Nhập link bạn đã được chia sẻ</h2>
+            <h2 class="mb-4"><i class="bi bi-download"></i> Nhập sổ tay được chia sẻ</h2>
 
             <!-- Form nhập link nếu chưa có notebook -->
             <?php if (!$notebook && !isset($_POST['import_notebook'])): ?>

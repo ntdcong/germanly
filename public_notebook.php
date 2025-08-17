@@ -61,6 +61,8 @@ $title = $notebook['title'] ?? 'Sổ tay';
       box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
       transform: translateY(-1px);
     }
+    .funny-wrap{ text-align:center;}
+    .funny-img{ max-width:260px; width:100%; height:auto; }
     @media (max-width: 576px) {
       .card-custom {
         padding: 30px 20px;
@@ -70,11 +72,14 @@ $title = $notebook['title'] ?? 'Sổ tay';
 </head>
 <body>
   <div class="container px-3">
+    <div class="funny-wrap">
+      <img src="assets/hehe.png" alt="Hehe" class="funny-img" />
+    </div>
     <div class="row justify-content-center">
       <div class="col-12 col-md-8 col-lg-6">
         <div class="card-custom">
           <h3 class="mb-2"><?= htmlspecialchars($title) ?></h3>
-          <p class="mb-4">Chọn chế độ học phù hợp</p>
+          <p class="mb-4">Quiz giống danh từ có thể không hoạt động nếu không có giống danh từ được điền ở cột "giống" trong sổ tay.</p>
           <div class="d-grid gap-3">
             <a class="btn btn-warning mode-btn" href="study_flashcard.php?token=<?= urlencode($token) ?>">
               <i class="bi bi-journal-richtext"></i> Flashcard

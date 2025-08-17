@@ -1,5 +1,7 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) { session_start(); }
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require 'db.php';
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -24,7 +26,7 @@ if (isset($_POST['add_group'])) {
 if (isset($_POST['add_notebook'])) {
     $title = trim($_POST['title'] ?? '');
     $desc = trim($_POST['description'] ?? '');
-    $group_id = $_POST['group_id'] !== '' ? (int)$_POST['group_id'] : null;
+    $group_id = $_POST['group_id'] !== '' ? (int) $_POST['group_id'] : null;
     if ($title) {
         $stmt = $pdo->prepare('INSERT INTO notebooks (user_id, title, description, group_id) VALUES (?, ?, ?, ?)');
         $stmt->execute([$user_id, $title, $desc, $group_id]);
@@ -35,7 +37,7 @@ if (isset($_POST['add_notebook'])) {
 }
 // Xóa sổ tay
 if (isset($_GET['delete'])) {
-    $id = (int)$_GET['delete'];
+    $id = (int) $_GET['delete'];
     $pdo->prepare('DELETE FROM learning_status WHERE vocab_id IN (SELECT id FROM vocabularies WHERE notebook_id=?)')->execute([$id]);
     $pdo->prepare('DELETE FROM vocabularies WHERE notebook_id=?')->execute([$id]);
     $pdo->prepare('DELETE FROM notebooks WHERE id=? AND user_id=?')->execute([$id, $user_id]);
@@ -43,10 +45,10 @@ if (isset($_GET['delete'])) {
 }
 // Cập nhật sổ tay
 if (isset($_POST['edit_notebook'])) {
-    $id = (int)$_POST['notebook_id'];
+    $id = (int) $_POST['notebook_id'];
     $title = trim($_POST['title'] ?? '');
     $desc = trim($_POST['description'] ?? '');
-    $group_id = $_POST['group_id'] !== '' ? (int)$_POST['group_id'] : null;
+    $group_id = $_POST['group_id'] !== '' ? (int) $_POST['group_id'] : null;
     if ($title) {
         $stmt = $pdo->prepare('UPDATE notebooks SET title=?, description=?, group_id=? WHERE id=? AND user_id=?');
         $stmt->execute([$title, $desc, $group_id, $id, $user_id]);
@@ -57,7 +59,7 @@ if (isset($_POST['edit_notebook'])) {
 }
 // Xoá nhóm
 if (isset($_GET['delete_group'])) {
-    $gid = (int)$_GET['delete_group'];
+    $gid = (int) $_GET['delete_group'];
     $pdo->prepare('UPDATE notebooks SET group_id=NULL WHERE group_id=? AND user_id=?')->execute([$gid, $user_id]);
     $pdo->prepare('DELETE FROM notebook_groups WHERE id=? AND user_id=?')->execute([$gid, $user_id]);
     $message = 'Đã xoá nhóm. Các sổ tay trong nhóm đã chuyển về "không nhóm"!';
@@ -87,18 +89,18 @@ if ($keyword !== '') {
 $counts = [];
 if ($notebooks) {
     $ids = array_column($notebooks, 'id');
-    $in  = implode(',', array_fill(0, count($ids), '?'));
+    $in = implode(',', array_fill(0, count($ids), '?'));
     $q = $pdo->prepare("SELECT notebook_id, COUNT(*) cnt FROM vocabularies WHERE notebook_id IN ($in) GROUP BY notebook_id");
     $q->execute($ids);
     foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $r) {
-        $counts[(int)$r['notebook_id']] = (int)$r['cnt'];
+        $counts[(int) $r['notebook_id']] = (int) $r['cnt'];
     }
 }
 // Kiểm tra “Giống”
 $genderReady = [];
 if ($notebooks) {
     $ids = array_column($notebooks, 'id');
-    $in  = implode(',', array_fill(0, count($ids), '?'));
+    $in = implode(',', array_fill(0, count($ids), '?'));
     $q = $pdo->prepare("
         SELECT DISTINCT notebook_id
         FROM vocabularies
@@ -108,7 +110,7 @@ if ($notebooks) {
     ");
     $q->execute($ids);
     foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $r) {
-        $genderReady[(int)$r['notebook_id']] = true;
+        $genderReady[(int) $r['notebook_id']] = true;
     }
 }
 
@@ -136,696 +138,1016 @@ $selected_group = isset($_GET['group']) ? $_GET['group'] : 'all';
 
     <!-- Styles (giống giao diện mẫu) -->
     <style>
-        :root {
-            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            --warning-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-            --danger-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-            --surface: #ffffff;
-            --surface-secondary: #f8fafc;
-            --surface-tertiary: #f1f5f9;
-            --border: rgba(15, 23, 42, .08);
-            --shadow-sm: 0 1px 2px rgba(0, 0, 0, .05);
-            --shadow: 0 1px 3px rgba(0, 0, 0, .1), 0 1px 2px rgba(0, 0, 0, .06);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, .1), 0 4px 6px -2px rgba(0, 0, 0, .05);
-            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, .1), 0 10px 10px -5px rgba(0, 0, 0, .04);
-            --text-primary: #0f172a;
-            --text-secondary: #475569;
-            --text-tertiary: #94a3b8;
-            --border-radius: 16px;
-            --border-radius-lg: 24px;
-        }
+    :root {
+        /* Cập nhật màu sắc cho hiện đại hơn */
+        --primary-gradient: linear-gradient(135deg, #4f46e5, #7c3aed); /* Indigo */
+        --secondary-gradient: linear-gradient(135deg, #ec4899, #f43f5e); /* Rose */
+        --success-gradient: linear-gradient(135deg, #10b981, #059669); /* Emerald */
+        --warning-gradient: linear-gradient(135deg, #f59e0b, #d97706); /* Amber */
+        --danger-gradient: linear-gradient(135deg, #ef4444, #dc2626); /* Red */
+        --info-gradient: linear-gradient(135deg, #0ea5e9, #0284c7); /* Sky */
 
-        * {
-            box-sizing: border-box
-        }
 
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: var(--text-primary);
-            line-height: 1.6
-        }
+        --surface: #ffffff;
+        --surface-secondary: #f9fafb; /* Xám nhạt hơn */
+        --surface-tertiary: #f3f4f6;
+        --border: #e5e7eb; /* Border nhạt hơn */
+        --border-focus: #4f46e5; /* Màu focus */
 
+        /* Shadow hợp lý hơn */
+        --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+        --shadow-md: 0 6px 10px -1px rgba(0, 0, 0, 0.1), 0 4px 6px -3px rgba(0, 0, 0, 0.1);
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+        --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+
+        --text-primary: #1f2937; /* Xám đậm hơn */
+        --text-secondary: #4b5563;
+        --text-tertiary: #9ca3af;
+
+        --border-radius-sm: 6px;
+        --border-radius: 10px; /* Border-radius nhỏ gọn hơn */
+        --border-radius-lg: 16px;
+        --border-radius-xl: 24px;
+
+        --transition: all 0.2s ease-in-out;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        background: var(--primary-gradient); /* Giữ gradient nền */
+        min-height: 100vh;
+        color: var(--text-primary);
+        line-height: 1.6;
+        margin: 0;
+        padding: 0;
+    }
+
+    .main-container {
+        background: var(--surface-secondary);
+        border-radius: var(--border-radius-xl) var(--border-radius-xl) 0 0;
+        margin: 2rem auto 0; /* Căn giữa */
+        max-width: 1400px; /* Giới hạn chiều rộng */
+        min-height: calc(100vh - 2rem);
+        overflow: hidden;
+        box-shadow: var(--shadow-xl); /* Thêm shadow cho container chính */
+    }
+
+    /* Navbar */
+    .modern-navbar {
+        background: rgba(255, 255, 255, .95);
+        backdrop-filter: blur(10px); /* Blur nhẹ */
+        border-bottom: 1px solid var(--border);
+        padding: 1rem 1rem; /* Padding đều hơn, responsive */
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        box-shadow: var(--shadow-sm); /* Shadow nhẹ cho navbar */
+    }
+
+    .navbar-brand {
+        font-weight: 800; /* Font-weight đậm hơn */
+        font-size: 1.5rem; /* Nhỏ hơn trên mobile */
+        background: var(--primary-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        text-decoration: none;
+        transition: var(--transition);
+        white-space: nowrap; /* Tránh xuống dòng */
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .navbar-brand:hover {
+        transform: scale(1.02); /* Hiệu ứng hover nhẹ */
+    }
+
+    .logout-btn {
+        background: var(--danger-gradient);
+        border: none;
+        color: #fff;
+        padding: 0.5rem 1rem; /* Padding nhỏ gọn hơn */
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 0.85rem; /* Font-size nhỏ gọn */
+        transition: var(--transition);
+        box-shadow: var(--shadow-sm);
+        display: flex; /* Flex để căn icon và text */
+        align-items: center;
+        gap: 0.4rem; /* Khoảng cách giữa icon và text */
+        white-space: nowrap;
+    }
+
+    .logout-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+        color: #fff;
+    }
+
+    /* Action section */
+    .action-section {
+        padding: 1.5rem 1rem 1rem; /* Padding responsive */
+        text-align: center; /* Căn giữa trên mobile */
+    }
+
+    .modern-btn {
+        border: none;
+        padding: 0.75rem 1.25rem; /* Padding nhỏ gọn hơn */
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 0.85rem; /* Font-size nhỏ gọn */
+        color: #fff;
+        text-decoration: none;
+        transition: var(--transition);
+        box-shadow: var(--shadow);
+        position: relative;
+        overflow: hidden;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem; /* Khoảng cách giữa icon và text */
+        margin: 0.3rem; /* Margin giữa các nút */
+        white-space: nowrap;
+    }
+
+    .modern-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+        color: #fff;
+    }
+
+    .modern-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .2), transparent);
+        transition: left 0.5s;
+    }
+
+    .modern-btn:hover::before {
+        left: 100%;
+    }
+
+    .btn-create-group {
+        background: var(--primary-gradient);
+    }
+
+    .btn-create-notebook {
+        background: var(--success-gradient);
+    }
+
+    .btn-import {
+        background: var(--secondary-gradient);
+    }
+
+    /* Filter */
+    .filter-section {
+        background: var(--surface);
+        border-radius: var(--border-radius-lg);
+        padding: 1.25rem 1rem; /* Padding responsive */
+        margin: 0 1rem 1.5rem; /* Margin hai bên */
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--border);
+    }
+
+    .filter-label {
+        color: var(--text-secondary);
+        font-weight: 600; /* Font-weight đậm hơn */
+        margin-bottom: 0.6rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.9rem;
+    }
+
+    .modern-select, .form-control, .form-select {
+        border: 1px solid var(--border);
+        border-radius: var(--border-radius-sm);
+        padding: 0.65rem 0.85rem; /* Padding nhỏ gọn hơn */
+        background: var(--surface);
+        font-weight: 500;
+        color: var(--text-primary);
+        transition: var(--transition);
+        box-shadow: var(--shadow-xs);
+        font-size: 0.9rem; /* Font-size nhỏ gọn */
+        height: auto; /* Cho phép chiều cao tự điều chỉnh */
+    }
+
+    .modern-select:focus, .form-control:focus, .form-select:focus {
+        outline: none;
+        border-color: var(--border-focus);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); /* Shadow focus */
+    }
+
+    .search-input {
+        min-width: 0; /* Loại bỏ min-width cứng */
+        flex-grow: 1; /* Chiếm không gian còn lại */
+    }
+
+    .input-group {
+        flex-wrap: wrap; /* Cho phép wrap trên mobile */
+    }
+
+    .input-group > .form-control,
+    .input-group > .form-select,
+    .input-group > .input-group-text,
+    .input-group > .btn {
+        flex-shrink: 0; /* Không co lại quá mức */
+    }
+
+    /* Group card */
+    .group-card {
+        background: var(--surface);
+        border-radius: var(--border-radius-lg);
+        margin: 0 1rem 1.5rem; /* Margin hai bên */
+        overflow: hidden;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border);
+        transition: var(--transition);
+    }
+
+    .group-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .group-header {
+        background: var(--surface-tertiary); /* Màu nền nhạt hơn */
+        padding: 1rem 1rem; /* Padding nhỏ gọn hơn */
+        cursor: pointer;
+        transition: var(--transition);
+        border-bottom: 1px solid var(--border);
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: space-between; /* Căn đều */
+        min-height: 60px; /* Chiều cao tối thiểu */
+    }
+
+    .group-header:hover {
+        background: #e5e7eb; /* Hover nhẹ */
+    }
+
+    .group-info {
+        display: flex;
+        align-items: center;
+        flex-grow: 1; /* Chiếm không gian còn lại */
+        min-width: 0; /* Cho phép truncate */
+    }
+
+    .group-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.25rem; /* Nhỏ gọn hơn */
+        height: 2.25rem;
+        background: var(--primary-gradient);
+        border-radius: var(--border-radius-sm); /* Border-radius nhỏ */
+        color: #fff;
+        font-size: 1rem; /* Font-size icon nhỏ gọn */
+        margin-right: 0.75rem;
+        box-shadow: var(--shadow-sm);
+        flex-shrink: 0; /* Không co lại */
+    }
+
+    .group-title {
+        font-size: 1rem; /* Font-size nhỏ gọn hơn */
+        font-weight: 700; /* Font-weight đậm hơn */
+        color: var(--text-primary);
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis; /* ... nếu quá dài */
+        flex-grow: 1;
+        min-width: 0; /* Cho phép truncate */
+    }
+
+    .group-delete-btn {
+        background: var(--danger-gradient);
+        border: none;
+        color: #fff;
+        padding: 0.4rem;
+        border-radius: 6px; /* Border-radius nhỏ */
+        transition: var(--transition);
+        margin-left: 0.5rem; /* Margin nhỏ hơn */
+        flex-shrink: 0; /* Không co lại */
+        width: 2rem; /* Chiều rộng cố định */
+        height: 2rem; /* Chiều cao cố định */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+    }
+
+    .group-delete-btn:hover {
+        transform: scale(1.05); /* Scale nhẹ */
+        box-shadow: var(--shadow-sm);
+    }
+
+    .toggle-icon {
+        font-size: 1rem; /* Font-size nhỏ gọn */
+        color: var(--text-tertiary);
+        transition: var(--transition);
+        flex-shrink: 0; /* Không co lại */
+        margin-left: 0.5rem;
+    }
+
+    /* Notebook grid */
+    .notebook-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* Minmax nhỏ hơn để phù hợp mobile */
+        gap: 1rem; /* Gap nhỏ hơn */
+        padding: 1rem; /* Padding nhỏ gọn hơn */
+    }
+
+    /* Notebook card */
+    .notebook-card {
+        background: var(--surface);
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--border);
+        transition: var(--transition);
+        height: fit-content;
+        display: flex;
+        flex-direction: column; /* Layout dọc */
+    }
+
+    .notebook-card:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-md);
+        border-color: rgba(79, 70, 229, 0.2); /* Border focus nhẹ */
+    }
+
+    .notebook-header {
+        padding: 1rem; /* Padding nhỏ gọn hơn */
+        border-bottom: 1px solid var(--border);
+        flex-grow: 1; /* Chiếm không gian còn lại */
+    }
+
+    .notebook-avatar {
+        width: 2.25rem; /* Nhỏ gọn hơn */
+        height: 2.25rem;
+        border-radius: var(--border-radius-sm); /* Border-radius nhỏ */
+        background: var(--primary-gradient);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 0.9rem; /* Font-size nhỏ gọn */
+        margin-bottom: 0.6rem; /* Margin-bottom nhỏ gọn hơn */
+        box-shadow: var(--shadow-xs);
+        flex-shrink: 0; /* Không co lại */
+    }
+
+    .notebook-title {
+        font-size: 1rem; /* Font-size nhỏ gọn hơn */
+        font-weight: 700; /* Font-weight đậm hơn */
+        color: var(--text-primary);
+        margin-bottom: 0.4rem;
+        line-height: 1.4;
+        display: -webkit-box;
+        -webkit-line-clamp: 2; /* Giới hạn 2 dòng */
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        word-break: break-word; /* Ngắt từ dài */
+    }
+
+    .notebook-description {
+        color: var(--text-secondary);
+        font-size: 0.8rem; /* Font-size nhỏ gọn hơn */
+        line-height: 1.5;
+        display: -webkit-box;
+        -webkit-line-clamp: 2; /* Giới hạn 2 dòng */
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        word-break: break-word; /* Ngắt từ dài */
+    }
+
+    /* Actions */
+    .notebook-actions {
+        padding: 1rem; /* Padding nhỏ gọn hơn */
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); /* Minmax nhỏ hơn */
+        gap: 0.6rem; /* Gap nhỏ hơn */
+        background-color: var(--surface-secondary); /* Nền nhẹ */
+        border-top: 1px solid var(--border);
+    }
+
+    /* fallback nhỏ */
+    .action-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        padding: 0.55rem 0.65rem; /* Padding nhỏ gọn hơn */
+        border-radius: var(--border-radius-sm); /* Border-radius nhỏ */
+        font-weight: 500;
+        font-size: 0.75rem; /* Font-size nhỏ gọn */
+        text-decoration: none;
+        transition: var(--transition);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text-primary);
+        position: relative;
+        overflow: hidden;
+        white-space: nowrap;
+        min-height: 36px; /* Chiều cao tối thiểu */
+        text-align: center;
+    }
+
+    .action-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-xs);
+        text-decoration: none;
+        z-index: 1; /* Đảm bảo hover hiển thị trên các phần tử khác */
+    }
+
+    /* Màu sắc cho từng loại action btn */
+    .action-btn.flashcard {
+        border-color: #f59e0b;
+        color: #f59e0b;
+        background-color: #fffbeb; /* Nền nhạt */
+    }
+    .action-btn.flashcard:hover {
+        background: #f59e0b;
+        color: #fff;
+    }
+
+    .action-btn.quiz {
+        border-color: #0ea5e9;
+        color: #0ea5e9;
+        background-color: #f0f9ff; /* Nền nhạt */
+    }
+    .action-btn.quiz:hover {
+        background: #0ea5e9;
+        color: #fff;
+    }
+
+    .action-btn.vocab {
+        border-color: #4f46e5;
+        color: #4f46e5;
+        background-color: #eef2ff; /* Nền nhạt */
+    }
+    .action-btn.vocab:hover {
+        background: #4f46e5;
+        color: #fff;
+    }
+
+    .action-btn.gender {
+        border-color: #7c3aed;
+        color: #7c3aed;
+        background-color: #f5f3ff; /* Nền nhạt */
+    }
+    .action-btn.gender:hover {
+        background: #7c3aed;
+        color: #fff;
+    }
+
+    .action-btn.excel {
+        border-color: #10b981;
+        color: #10b981;
+        background-color: #ecfdf5; /* Nền nhạt */
+    }
+    .action-btn.excel:hover {
+        background: #10b981;
+        color: #fff;
+    }
+
+    .action-btn.share {
+        border-color: #ec4899;
+        color: #ec4899;
+        background-color: #fdf2f8; /* Nền nhạt */
+    }
+    .action-btn.share:hover {
+        background: #ec4899;
+        color: #fff;
+    }
+
+    .action-btn.disabled {
+        opacity: 0.6;
+        pointer-events: none;
+        color: var(--text-tertiary);
+        border-color: var(--border);
+        background-color: var(--surface-tertiary); /* Nền disabled */
+    }
+
+    .action-btn.disabled:hover {
+        transform: none;
+        box-shadow: none;
+    }
+
+
+    /* Footer mini actions */
+    .notebook-footer {
+        padding: 0.75rem 1rem; /* Padding nhỏ gọn hơn */
+        background: var(--surface);
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 0.6rem; /* Gap nhỏ hơn */
+        font-size: 0.75rem; /* Font-size nhỏ gọn */
+    }
+
+    .notebook-meta {
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        flex-wrap: wrap; /* Wrap nếu quá dài */
+        min-width: 0; /* Cho phép truncate */
+    }
+
+    .notebook-meta span {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .notebook-actions-mini {
+        display: flex;
+        gap: 0.4rem;
+    }
+
+    .mini-btn {
+        padding: 0.35rem; /* Padding nhỏ gọn */
+        border-radius: 5px; /* Border-radius nhỏ */
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text-secondary);
+        transition: var(--transition);
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.8rem; /* Chiều rộng cố định */
+        height: 1.8rem; /* Chiều cao cố định */
+        flex-shrink: 0; /* Không co lại */
+        font-size: 0.75rem;
+    }
+
+    .mini-btn:hover {
+        background: var(--text-secondary);
+        color: #fff;
+        text-decoration: none;
+        transform: translateY(-1px); /* Hiệu ứng nhỏ */
+        box-shadow: var(--shadow-xs);
+    }
+
+    .mini-btn.danger:hover {
+        background: #ef4444;
+        border-color: #ef4444;
+    }
+
+    /* Empty */
+    .empty-state {
+        text-align: center;
+        padding: 2rem 1rem; /* Padding nhỏ gọn hơn */
+        color: var(--text-secondary);
+        margin: 0 1rem 1.5rem; /* Margin hai bên */
+        background: var(--surface);
+        border-radius: var(--border-radius-lg);
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--border);
+    }
+
+    .empty-state-icon {
+        width: 3rem;
+        height: 3rem;
+        background: var(--primary-gradient);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1rem; /* Margin-bottom nhỏ gọn hơn */
+        color: #fff;
+        font-size: 1.5rem;
+    }
+
+    .empty-state h3 {
+        color: var(--text-primary);
+        font-weight: 700; /* Font-weight đậm hơn */
+        margin-bottom: 0.6rem; /* Margin-bottom nhỏ gọn hơn */
+        font-size: 1.1rem;
+    }
+
+    .empty-state p {
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+    }
+
+    /* Modal */
+    .modal-content {
+        border-radius: var(--border-radius-lg);
+        border: none;
+        box-shadow: var(--shadow-xl);
+    }
+
+    .modal-header {
+        background: var(--surface-secondary);
+        border-bottom: 1px solid var(--border);
+        border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+        padding: 1rem; /* Padding nhỏ gọn hơn */
+    }
+
+    .modal-title {
+        font-weight: 700; /* Font-weight đậm hơn */
+        color: var(--text-primary);
+        font-size: 1.1rem; /* Font-size nhỏ gọn hơn */
+    }
+
+    .modal-body {
+        padding: 1rem; /* Padding nhỏ gọn hơn */
+    }
+
+    .modal-footer {
+        border-top: 1px solid var(--border);
+        background: var(--surface-secondary);
+        padding: 0.8rem 1rem; /* Padding nhỏ gọn hơn */
+    }
+
+    .form-label {
+        font-weight: 600; /* Font-weight đậm hơn */
+        color: var(--text-secondary);
+        margin-bottom: 0.4rem;
+        font-size: 0.9rem; /* Font-size nhỏ gọn */
+    }
+
+    .btn-primary, .btn-success, .btn-secondary {
+        padding: 0.55rem 1rem; /* Padding nhỏ gọn hơn */
+        border-radius: var(--border-radius-sm); /* Border-radius nhỏ */
+        font-weight: 600;
+        font-size: 0.9rem; /* Font-size nhỏ gọn */
+        border: none;
+        transition: var(--transition);
+        box-shadow: var(--shadow-sm);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+    }
+
+    .btn-primary {
+        background: var(--primary-gradient);
+    }
+    .btn-primary:hover {
+        box-shadow: var(--shadow);
+        transform: translateY(-1px);
+    }
+
+    .btn-success {
+        background: var(--success-gradient);
+    }
+    .btn-success:hover {
+        box-shadow: var(--shadow);
+        transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+        background: var(--surface-tertiary);
+        color: var(--text-secondary);
+        border: 1px solid var(--border) !important; /* Đảm bảo viền */
+    }
+    .btn-secondary:hover {
+        background: var(--border);
+        transform: translateY(-1px);
+    }
+
+    .modern-alert {
+        background: rgba(79, 70, 229, 0.1); /* Nền alert nhẹ */
+        border: 1px solid rgba(79, 70, 229, 0.2);
+        border-radius: var(--border-radius);
+        padding: 0.8rem 1rem; /* Padding nhỏ gọn hơn */
+        color: #4c51bf; /* Màu text alert */
+        margin: 0 1rem 1rem; /* Margin hai bên và dưới */
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        animation: fadeIn 0.3s ease-out forwards; /* Animation mượt hơn */
+        font-size: 0.9rem;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .fade-in {
+        animation: fadeIn 0.3s ease-out forwards;
+    }
+
+    .slide-down {
+        animation: slideDown 0.3s ease-out forwards;
+    }
+
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            max-height: 0;
+        }
+        to {
+            opacity: 1;
+            max-height: 500px; /* Đủ cao cho nội dung */
+        }
+    }
+
+    .d-none {
+        display: none !important;
+    }
+
+    @media (min-width: 768px) {
         .main-container {
-            background: var(--surface-secondary);
-            border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
             margin-top: 2rem;
-            min-height: calc(100vh - 2rem);
-            overflow: hidden
+            border-radius: var(--border-radius-xl) var(--border-radius-xl) 0 0;
         }
 
-        /* Navbar */
         .modern-navbar {
-            background: rgba(255, 255, 255, .95);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--border);
-            padding: 1rem 0;
-            position: sticky;
-            top: 0;
-            z-index: 1000
+            padding: 1rem 1.5rem;
         }
 
         .navbar-brand {
-            font-weight: 700;
             font-size: 1.75rem;
-            background: var(--primary-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-decoration: none
         }
 
         .logout-btn {
-            background: var(--danger-gradient);
-            border: none;
-            color: #fff;
-            padding: .5rem 1.25rem;
-            border-radius: 50px;
-            font-weight: 500;
-            transition: .3s;
-            box-shadow: var(--shadow)
+            padding: 0.6rem 1.25rem;
+            font-size: 0.9rem;
+            gap: 0.5rem;
         }
 
-        .logout-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
-            color: #fff
-        }
-
-        /* Action section */
         .action-section {
-            padding: 2rem 0 1rem
+            padding: 2rem 1.5rem 1.5rem;
         }
 
         .modern-btn {
-            border: none;
-            padding: .875rem 2rem;
-            border-radius: 50px;
-            font-weight: 600;
-            color: #fff;
-            text-decoration: none;
-            transition: .3s cubic-bezier(.4, 0, .2, 1);
-            box-shadow: var(--shadow);
-            position: relative;
-            overflow: hidden;
-            display: inline-flex;
-            align-items: center;
-            gap: .5rem
+            padding: 0.875rem 1.75rem;
+            font-size: 0.95rem;
+            gap: 0.6rem;
+            margin: 0.5rem;
         }
 
-        .modern-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: var(--shadow-xl);
-            color: #fff
-        }
-
-        .modern-btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .2), transparent);
-            transition: left .5s
-        }
-
-        .modern-btn:hover::before {
-            left: 100%
-        }
-
-        .btn-create-group {
-            background: var(--primary-gradient)
-        }
-
-        .btn-create-notebook {
-            background: var(--success-gradient)
-        }
-
-        .btn-import {
-            background: var(--secondary-gradient)
-        }
-
-        /* Filter */
         .filter-section {
-            background: var(--surface);
-            border-radius: var(--border-radius);
             padding: 1.5rem;
-            margin-bottom: 2rem;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border)
+            margin: 0 1.5rem 2rem;
         }
 
         .filter-label {
-            color: var(--text-secondary);
-            font-weight: 500;
-            margin-bottom: .5rem
+            font-size: 0.95rem;
+            margin-bottom: 0.75rem;
         }
 
-        .modern-select {
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: .75rem 1rem;
-            background: var(--surface);
-            font-weight: 500;
-            color: var(--text-primary);
-            transition: .3s;
-            box-shadow: var(--shadow-sm)
+        .modern-select, .form-control, .form-select {
+            padding: 0.75rem 1rem;
+            font-size: 0.95rem;
         }
 
-        .modern-select:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, .1)
-        }
-
-        .search-input {
-            min-width: 260px
-        }
-
-        @media(max-width:576px) {
-            .search-input {
-                min-width: 0;
-                width: 100%
-            }
-        }
-
-        /* Group card */
         .group-card {
-            background: var(--surface);
-            border-radius: var(--border-radius-lg);
-            margin-bottom: 2rem;
-            overflow: hidden;
-            box-shadow: var(--shadow-lg);
-            border: 1px solid var(--border);
-            transition: .3s
-        }
-
-        .group-card:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-xl)
+            margin: 0 1.5rem 2rem;
         }
 
         .group-header {
-            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-            padding: 1.5rem 2rem;
-            cursor: pointer;
-            transition: .3s;
-            border-bottom: 1px solid var(--border);
-            position: relative
-        }
-
-        .group-header:hover {
-            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)
+            padding: 1.25rem 1.5rem;
         }
 
         .group-icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 3rem;
-            height: 3rem;
-            background: var(--primary-gradient);
-            border-radius: 16px;
-            color: #fff;
-            font-size: 1.5rem;
+            width: 2.75rem;
+            height: 2.75rem;
+            font-size: 1.25rem;
             margin-right: 1rem;
-            box-shadow: var(--shadow)
         }
 
         .group-title {
-            font-size: 1.375rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin: 0
+            font-size: 1.25rem;
         }
 
         .group-delete-btn {
-            background: var(--danger-gradient);
-            border: none;
-            color: #fff;
-            padding: .5rem;
-            border-radius: 10px;
-            transition: .3s;
-            margin-left: 1rem
-        }
-
-        .group-delete-btn:hover {
-            transform: scale(1.1);
-            box-shadow: var(--shadow)
+            width: 2.5rem;
+            height: 2.5rem;
+            padding: 0.5rem;
+            font-size: 0.82rem;
+            margin-left: 0.75rem;
         }
 
         .toggle-icon {
-            position: absolute;
-            right: 2rem;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 1.5rem;
-            color: var(--text-tertiary);
-            transition: .3s
+            font-size: 1.25rem;
+            margin-left: 0.75rem;
         }
 
-        /* Notebook grid */
         .notebook-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 1.5rem;
-            padding: 2rem
-        }
-
-        @media(max-width:768px) {
-            .notebook-grid {
-                grid-template-columns: 1fr;
-                padding: 1rem;
-                gap: 1rem
-            }
-        }
-
-        /* Notebook card */
-        .notebook-card {
-            background: var(--surface);
-            border-radius: var(--border-radius);
-            overflow: hidden;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border);
-            transition: .3s cubic-bezier(.4, 0, .2, 1);
-            height: fit-content
-        }
-
-        .notebook-card:hover {
-            transform: translateY(-4px);
-            box-shadow: var(--shadow-xl);
-            border-color: rgba(102, 126, 234, .2)
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.25rem;
+            padding: 1.5rem;
         }
 
         .notebook-header {
-            background: linear-gradient(135deg, #fafafa 0%, #f4f4f5 100%);
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--border)
+            padding: 1.25rem;
         }
 
         .notebook-avatar {
-            width: 3rem;
-            height: 3rem;
-            border-radius: 12px;
-            background: var(--primary-gradient);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-            font-size: 1.25rem;
-            margin-bottom: 1rem;
-            box-shadow: var(--shadow)
+            width: 2.75rem;
+            height: 2.75rem;
+            font-size: 1.1rem;
+            margin-bottom: 0.8rem;
         }
 
         .notebook-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: .5rem;
-            line-height: 1.4
+            font-size: 1.1rem;
         }
 
         .notebook-description {
-            color: var(--text-secondary);
-            font-size: .9rem;
-            line-height: 1.5;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden
+            font-size: 0.85rem;
         }
 
-        /* Actions */
         .notebook-actions {
-            padding: 1.5rem;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: .75rem
+            padding: 1.25rem;
+            gap: 0.75rem;
         }
 
-        @media(max-width:480px) {
-            .notebook-actions {
-                grid-template-columns: 1fr 1fr
-            }
-        }
-
-        /* fallback nhỏ */
         .action-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: .5rem;
-            padding: .75rem 1rem;
-            border-radius: 10px;
-            font-weight: 500;
-            font-size: .875rem;
-            text-decoration: none;
-            transition: .3s;
-            border: 1px solid var(--border);
-            background: var(--surface);
-            color: var(--text-primary);
-            position: relative;
-            overflow: hidden
+            padding: 0.65rem 0.8rem;
+            font-size: 0.82rem;
+            gap: 0.5rem;
+            min-height: 40px;
         }
 
-        .action-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: var(--shadow);
-            text-decoration: none
-        }
-
-        .action-btn.flashcard {
-            border-color: #f59e0b;
-            color: #f59e0b
-        }
-
-        .action-btn.flashcard:hover {
-            background: #f59e0b;
-            color: #fff
-        }
-
-        .action-btn.quiz {
-            border-color: #06b6d4;
-            color: #06b6d4
-        }
-
-        .action-btn.quiz:hover {
-            background: #06b6d4;
-            color: #fff
-        }
-
-        .action-btn.vocab {
-            border-color: #3b82f6;
-            color: #3b82f6
-        }
-
-        .action-btn.vocab:hover {
-            background: #3b82f6;
-            color: #fff
-        }
-
-        .action-btn.gender {
-            border-color: #6366f1;
-            color: #6366f1
-        }
-
-        .action-btn.gender:hover {
-            background: #6366f1;
-            color: #fff
-        }
-
-        .action-btn.excel {
-            border-color: #10b981;
-            color: #10b981
-        }
-
-        .action-btn.excel:hover {
-            background: #10b981;
-            color: #fff
-        }
-
-        .action-btn.share {
-            border-color: #8b5cf6;
-            color: #8b5cf6
-        }
-
-        .action-btn.share:hover {
-            background: #8b5cf6;
-            color: #fff
-        }
-
-        .action-btn.disabled {
-            opacity: .5;
-            pointer-events: none;
-            color: var(--text-tertiary);
-            border-color: var(--border)
-        }
-
-        /* 2 dòng gọn trên mobile: 3 cột => 6 nút = 2 hàng */
-        @media(max-width:576px) {
-            .notebook-actions {
-                grid-template-columns: repeat(3, minmax(0, 1fr))
-            }
-
-            .action-btn {
-                padding: .65rem .5rem;
-                font-size: .82rem
-            }
-
-            .action-btn i {
-                font-size: 1rem
-            }
-
-            .action-btn span {
-                white-space: nowrap
-            }
-
-            .only-desktop {
-                display: none !important
-            }
-        }
-
-        .only-mobile {
-            display: none
-        }
-
-        @media(max-width:576px) {
-            .only-mobile {
-                display: inline-flex
-            }
-        }
-
-        /* Footer mini actions */
         .notebook-footer {
-            padding: 1rem 1.5rem;
-            background: var(--surface-secondary);
-            border-top: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 1rem
-        }
-
-        .notebook-meta {
-            color: var(--text-secondary);
-            font-size: .875rem;
-            display: flex;
-            align-items: center;
-            gap: .5rem
-        }
-
-        .notebook-actions-mini {
-            display: flex;
-            gap: .5rem
+            padding: 0.8rem 1.25rem;
+            gap: 0.75rem;
+            font-size: 0.85rem;
         }
 
         .mini-btn {
-            padding: .5rem;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            background: var(--surface);
-            color: var(--text-secondary);
-            transition: .3s;
-            text-decoration: none
+            padding: 0.4rem;
+            width: 2.2rem;
+            height: 2.2rem;
+            font-size: 0.82rem;
         }
 
-        .mini-btn:hover {
-            background: var(--text-secondary);
-            color: #fff;
-            text-decoration: none
-        }
-
-        .mini-btn.danger:hover {
-            background: #ef4444;
-            border-color: #ef4444
-        }
-
-        /* Empty */
         .empty-state {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: var(--text-secondary)
+            padding: 3rem 1.5rem;
+            margin: 0 1.5rem 2rem;
         }
 
         .empty-state-icon {
             width: 4rem;
             height: 4rem;
-            background: var(--primary-gradient);
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 1.5rem;
-            color: #fff;
-            font-size: 2rem
+            font-size: 2rem;
+            margin-bottom: 1.25rem;
         }
 
         .empty-state h3 {
-            color: var(--text-primary);
-            font-weight: 600;
-            margin-bottom: 1rem
-        }
-
-        /* Modal */
-        .modal-content {
-            border-radius: var(--border-radius);
-            border: none;
-            box-shadow: var(--shadow-xl)
+            font-size: 1.25rem;
+            margin-bottom: 0.75rem;
         }
 
         .modal-header {
-            background: var(--surface-secondary);
-            border-bottom: 1px solid var(--border);
-            border-radius: var(--border-radius) var(--border-radius) 0 0
+            padding: 1.25rem 1.5rem;
         }
 
         .modal-title {
-            font-weight: 600;
-            color: var(--text-primary)
+            font-size: 1.25rem;
         }
 
-        .form-label {
-            font-weight: 500;
-            color: var(--text-secondary);
-            margin-bottom: .5rem
-        }
-
-        .form-control,
-        .form-select {
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: .75rem 1rem;
-            transition: .3s;
-            background: var(--surface)
-        }
-
-        .form-control:focus,
-        .form-select:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, .1);
-            outline: none
+        .modal-body {
+            padding: 1.5rem;
         }
 
         .modal-footer {
-            border-top: 1px solid var(--border);
-            background: var(--surface-secondary)
+            padding: 1rem 1.5rem;
         }
 
-        .btn-primary {
-            background: var(--primary-gradient);
-            border: none;
-            padding: .75rem 1.5rem;
-            border-radius: 10px;
-            font-weight: 500
+        .form-label {
+            font-size: 0.95rem;
+            margin-bottom: 0.5rem;
         }
 
-        .btn-success {
-            background: var(--success-gradient);
-            border: none;
-            padding: .75rem 1.5rem;
-            border-radius: 10px;
-            font-weight: 500
-        }
-
-        .btn-secondary {
-            background: var(--surface-tertiary);
-            border: 1px solid var(--border);
-            color: var(--text-secondary);
-            padding: .75rem 1.5rem;
-            border-radius: 10px;
-            font-weight: 500
+        .btn-primary, .btn-success, .btn-secondary {
+            padding: 0.65rem 1.25rem;
+            font-size: 0.95rem;
+            gap: 0.5rem;
         }
 
         .modern-alert {
-            background: rgba(102, 126, 234, .1);
-            border: 1px solid rgba(102, 126, 234, .2);
-            border-radius: var(--border-radius);
-            padding: 1rem 1.5rem;
-            color: #4c51bf;
-            margin-bottom: 2rem
+            padding: 1rem 1.25rem;
+            margin: 0 1.5rem 1.5rem;
+            font-size: 0.95rem;
+        }
+    }
+
+    @media (min-width: 576px) and (max-width: 767.98px) {
+        .notebook-grid {
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 1rem;
+            padding: 1rem;
         }
 
-        .fade-in {
-            animation: fadeIn .5s ease-in
+        .notebook-actions {
+            grid-template-columns: repeat(3, minmax(0, 1fr)); /* 3 cột trên tablet nhỏ */
         }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px)
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0)
-            }
+        .action-btn {
+            padding: 0.6rem 0.7rem;
+            font-size: 0.8rem;
         }
+    }
 
-        .slide-down {
-            animation: slideDown .3s ease-out
+    .modal,
+    .modal-backdrop {
+        will-change: opacity, transform;
+        backface-visibility: hidden;
+    }
+
+    .ripple {
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, .3);
+        pointer-events: none;
+        transform: scale(0);
+        animation: ripple-animation .6s linear;
+    }
+
+    @keyframes ripple-animation {
+        to {
+            transform: scale(2);
+            opacity: 0;
         }
+    }
+    /* Notebook grid - Thêm cuộn dọc */
+    .notebook-grid {
+        max-height: 70vh; 
+        overflow-y: auto; 
+        padding-bottom: 0.5rem;
+    }
 
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-10px)
-            }
+    .notebook-grid::-webkit-scrollbar {
+        width: 8px; 
+    }
+    .notebook-grid::-webkit-scrollbar-track {
+        background: var(--surface-secondary); 
+        border-radius: 4px;
+    }
+    .notebook-grid::-webkit-scrollbar-thumb {
+        background-color: var(--text-tertiary); 
+        border-radius: 4px;
+        border: 2px solid var(--surface-secondary); 
+    }
+    .notebook-grid::-webkit-scrollbar-thumb:hover {
+        background-color: var(--text-secondary); 
+    }
 
-            to {
-                opacity: 1;
-                transform: translateY(0)
-            }
-        }
+    /* Tùy chỉnh thanh cuộn cho Firefox */
+    .notebook-grid {
+        scrollbar-width: thin; 
+        scrollbar-color: var(--text-tertiary) var(--surface-secondary); 
+    }
+    .action-section {
+    padding: 2rem 0 1rem;
+    text-align: center; /* Căn giữa nội dung */
+    }
 
-        .d-none {
-            display: none !important
-        }
+    .action-section .d-flex {
+        flex-direction: row; 
+        flex-wrap: wrap; 
+        justify-content: center; 
+        gap: 0.75rem; 
+        max-width: 100%; 
+        margin: 0 auto; 
+    }
 
-        @media(max-width:768px) {
-            .main-container {
-                margin-top: 0;
-                border-radius: 0
-            }
-
-            .action-section {
-                padding: 1.5rem 1rem 1rem
-            }
-
-            .modern-btn {
-                padding: .75rem 1.5rem;
-                font-size: .9rem
-            }
-
-            .group-header {
-                padding: 1rem 1.5rem
-            }
-
-            .group-icon {
-                width: 2.5rem;
-                height: 2.5rem;
-                font-size: 1.25rem
-            }
-
-            .group-title {
-                font-size: 1.125rem
-            }
-
-            .toggle-icon {
-                right: 1.5rem
-            }
-        }
-
-        .modal,
-        .modal-backdrop {
-            will-change: opacity, transform;
-            backface-visibility: hidden
-        }
-    </style>
+    .modern-btn {
+        min-width: 80px; 
+        padding: 0.65rem 1rem; 
+        font-size: 0.9rem; 
+        border-radius: 50px; 
+        transition: var(--transition);
+        box-shadow: var(--shadow-sm);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        margin: 0.3rem; 
+        white-space: nowrap;
+        flex-shrink: 0; 
+    }
+</style>
 </head>
 
 <body>
@@ -845,7 +1167,7 @@ $selected_group = isset($_GET['group']) ? $_GET['group'] : 'all';
         <div class="container">
             <!-- Action Section -->
             <div class="action-section">
-                <div class="d-flex flex-column flex-md-row align-items-center justify-content-center gap-3">
+                <div class="d-flex flex-row flex-wrap align-items-center justify-content-center gap-3">
                     <button class="modern-btn btn-create-group" data-bs-toggle="modal" data-bs-target="#modalAddGroup">
                         <i class="bi bi-folder-plus"></i><span>Tạo nhóm</span>
                     </button>
@@ -853,7 +1175,7 @@ $selected_group = isset($_GET['group']) ? $_GET['group'] : 'all';
                         <i class="bi bi-journal-plus"></i><span>Tạo sổ tay</span>
                     </button>
                     <a href="import_shared.php" class="modern-btn btn-import">
-                        <i class="bi bi-download"></i><span>Nhập chia sẻ</span>
+                        <i class="bi bi-download"></i><span>Nhập sổ tay</span>
                     </a>
                 </div>
             </div>
@@ -905,7 +1227,7 @@ $selected_group = isset($_GET['group']) ? $_GET['group'] : 'all';
             $hasNoUngroup = empty($notebooks_by_group[null]) && empty($notebooks_by_group[0]);
             $hasNoAny = empty($notebooks);
             if ($hasNoAny):
-            ?>
+                ?>
                 <div class="empty-state fade-in">
                     <div class="empty-state-icon"><i class="bi bi-folder-plus"></i></div>
                     <h3>Chào mừng đến với GERMANLY</h3>
@@ -944,7 +1266,6 @@ $selected_group = isset($_GET['group']) ? $_GET['group'] : 'all';
                                 <?php foreach ($notebooks_by_group[$g['id']] as $nb): ?>
                                     <div class="notebook-card">
                                         <div class="notebook-header">
-                                            <div class="notebook-avatar"><i class="bi bi-journal-text"></i></div>
                                             <div class="notebook-title"><?= htmlspecialchars($nb['title']) ?></div>
                                             <div class="notebook-description">
                                                 <?= $nb['description'] ? nl2br(htmlspecialchars($nb['description'])) : 'Chưa có mô tả…' ?>
@@ -962,7 +1283,7 @@ $selected_group = isset($_GET['group']) ? $_GET['group'] : 'all';
                                                 <i class="bi bi-pencil-square"></i><span>Từ vựng</span>
                                             </a>
 
-                                            <?php $canGender = !empty($genderReady[(int)$nb['id']]); ?>
+                                            <?php $canGender = !empty($genderReady[(int) $nb['id']]); ?>
                                             <?php if ($canGender): ?>
                                                 <a href="study_gender.php?notebook_id=<?= $nb['id'] ?>" class="action-btn gender">
                                                     <i class="bi bi-gender-ambiguous"></i><span>Giống</span>
@@ -984,7 +1305,7 @@ $selected_group = isset($_GET['group']) ? $_GET['group'] : 'all';
                                         <div class="notebook-footer">
                                             <div class="notebook-meta">
                                                 <i class="bi bi-collection"></i>
-                                                <span><?= (int)($counts[(int)$nb['id']] ?? 0) ?> từ<?php if (!empty($nb['created_at'])): ?> • tạo <?= date('d/m/Y', strtotime($nb['created_at'])) ?><?php endif; ?></span>
+                                                <span><?= (int) ($counts[(int) $nb['id']] ?? 0) ?> từ<?php if (!empty($nb['created_at'])): ?> • tạo <?= date('d/m/Y', strtotime($nb['created_at'])) ?><?php endif; ?></span>
                                             </div>
                                              <div class="notebook-actions-mini">
                                                 <button
@@ -992,10 +1313,10 @@ $selected_group = isset($_GET['group']) ? $_GET['group'] : 'all';
                                                     class="mini-btn"
                                                     data-bs-toggle="modal"
                                                     data-bs-target="#editNotebookModal"
-                                                    data-id="<?= (int)$nb['id'] ?>"
+                                                    data-id="<?= (int) $nb['id'] ?>"
                                                     data-title="<?= htmlspecialchars($nb['title'], ENT_QUOTES) ?>"
                                                     data-desc="<?= htmlspecialchars($nb['description'] ?? '', ENT_QUOTES) ?>"
-                                                    data-group="<?= $nb['group_id'] !== null ? (int)$nb['group_id'] : '' ?>"
+                                                    data-group="<?= $nb['group_id'] !== null ? (int) $nb['group_id'] : '' ?>"
                                                     title="Sửa">
                                                     <i class="bi bi-pencil"></i>
                                                 </button>
@@ -1048,7 +1369,7 @@ $selected_group = isset($_GET['group']) ? $_GET['group'] : 'all';
                                         <i class="bi bi-pencil-square"></i><span>Từ vựng</span>
                                     </a>
 
-                                    <?php $canGender = !empty($genderReady[(int)$nb['id']]); ?>
+                                    <?php $canGender = !empty($genderReady[(int) $nb['id']]); ?>
                                     <?php if ($canGender): ?>
                                         <a href="study_gender.php?notebook_id=<?= $nb['id'] ?>" class="action-btn gender">
                                             <i class="bi bi-gender-ambiguous"></i><span>Giống</span>
@@ -1072,10 +1393,10 @@ $selected_group = isset($_GET['group']) ? $_GET['group'] : 'all';
                                         class="action-btn only-desktop"
                                         data-bs-toggle="modal"
                                         data-bs-target="#editNotebookModal"
-                                        data-id="<?= (int)$nb['id'] ?>"
+                                        data-id="<?= (int) $nb['id'] ?>"
                                         data-title="<?= htmlspecialchars($nb['title'], ENT_QUOTES) ?>"
                                         data-desc="<?= htmlspecialchars($nb['description'] ?? '', ENT_QUOTES) ?>"
-                                        data-group="<?= $nb['group_id'] !== null ? (int)$nb['group_id'] : '' ?>">
+                                        data-group="<?= $nb['group_id'] !== null ? (int) $nb['group_id'] : '' ?>">
                                         <i class="bi bi-pencil"></i><span>Sửa</span>
                                     </button>
                                     <a href="?delete=<?= $nb['id'] ?>" class="action-btn only-desktop" onclick="return confirm('Bạn có chắc chắn muốn xoá sổ tay này?');">
@@ -1086,7 +1407,7 @@ $selected_group = isset($_GET['group']) ? $_GET['group'] : 'all';
                                 <div class="notebook-footer">
                                     <div class="notebook-meta">
                                         <i class="bi bi-collection"></i>
-                                        <span><?= (int)($counts[(int)$nb['id']] ?? 0) ?> từ<?php if (!empty($nb['created_at'])): ?> • tạo <?= date('d/m/Y', strtotime($nb['created_at'])) ?><?php endif; ?></span>
+                                        <span><?= (int) ($counts[(int) $nb['id']] ?? 0) ?> từ<?php if (!empty($nb['created_at'])): ?> • tạo <?= date('d/m/Y', strtotime($nb['created_at'])) ?><?php endif; ?></span>
                                     </div>
                                      <div class="notebook-actions-mini">
                                         <button
@@ -1094,10 +1415,10 @@ $selected_group = isset($_GET['group']) ? $_GET['group'] : 'all';
                                             class="mini-btn"
                                             data-bs-toggle="modal"
                                             data-bs-target="#editNotebookModal"
-                                            data-id="<?= (int)$nb['id'] ?>"
+                                            data-id="<?= (int) $nb['id'] ?>"
                                             data-title="<?= htmlspecialchars($nb['title'], ENT_QUOTES) ?>"
                                             data-desc="<?= htmlspecialchars($nb['description'] ?? '', ENT_QUOTES) ?>"
-                                            data-group="<?= $nb['group_id'] !== null ? (int)$nb['group_id'] : '' ?>"
+                                            data-group="<?= $nb['group_id'] !== null ? (int) $nb['group_id'] : '' ?>"
                                             title="Sửa">
                                             <i class="bi bi-pencil"></i>
                                         </button>
