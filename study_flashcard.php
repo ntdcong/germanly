@@ -1,5 +1,7 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) { session_start(); }
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require 'db.php';
 
 // Hỗ trợ chế độ công khai bằng token
@@ -8,21 +10,25 @@ if ($token !== '') {
     $stmt = $pdo->prepare('SELECT * FROM notebooks WHERE public_token = ? AND is_public = 1');
     $stmt->execute([$token]);
     $notebook = $stmt->fetch();
-    if (!$notebook) { die('Link không hợp lệ hoặc sổ tay không công khai!'); }
-    $notebook_id = (int)$notebook['id'];
-    $user_id = $_SESSION['user_id'] ?? null; // Không bắt buộc đăng nhập
+    if (!$notebook) {
+        die('Link không hợp lệ hoặc sổ tay không công khai!');
+    }
+    $notebook_id = (int) $notebook['id'];
+    $user_id = $_SESSION['user_id'] ?? null;  // Không bắt buộc đăng nhập
 } else {
     if (!isset($_SESSION['user_id'])) {
         header('Location: login.php');
         exit;
     }
-    $user_id = (int)$_SESSION['user_id'];
-    $notebook_id = (int)($_GET['notebook_id'] ?? 0);
+    $user_id = (int) $_SESSION['user_id'];
+    $notebook_id = (int) ($_GET['notebook_id'] ?? 0);
     // Kiểm tra quyền sở hữu sổ tay
     $stmt = $pdo->prepare('SELECT * FROM notebooks WHERE id=? AND user_id=?');
     $stmt->execute([$notebook_id, $user_id]);
     $notebook = $stmt->fetch();
-    if (!$notebook) { die('Không tìm thấy sổ tay hoặc bạn không có quyền truy cập!'); }
+    if (!$notebook) {
+        die('Không tìm thấy sổ tay hoặc bạn không có quyền truy cập!');
+    }
 }
 // Lấy tất cả từ vựng một lần để tải trước
 if ($user_id) {
@@ -44,16 +50,18 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_status' && $_SERVER['R
         echo json_encode(['success' => false, 'message' => 'Chỉ người đăng nhập mới cập nhật trạng thái được.']);
         exit;
     }
-    $vocab_id = (int)($_POST['vocab_id'] ?? 0);
+    $vocab_id = (int) ($_POST['vocab_id'] ?? 0);
     $status = $_POST['status'] === 'known' ? 'known' : 'unknown';
     if ($vocab_id > 0) {
         $stmt = $pdo->prepare('SELECT id FROM learning_status WHERE user_id=? AND vocab_id=?');
         $stmt->execute([$user_id, $vocab_id]);
         if ($stmt->fetch()) {
-            $pdo->prepare('UPDATE learning_status SET status=?, last_reviewed=NOW() WHERE user_id=? AND vocab_id=?')
+            $pdo
+                ->prepare('UPDATE learning_status SET status=?, last_reviewed=NOW() WHERE user_id=? AND vocab_id=?')
                 ->execute([$status, $user_id, $vocab_id]);
         } else {
-            $pdo->prepare('INSERT INTO learning_status (user_id, vocab_id, status, last_reviewed) VALUES (?, ?, ?, NOW())')
+            $pdo
+                ->prepare('INSERT INTO learning_status (user_id, vocab_id, status, last_reviewed) VALUES (?, ?, ?, NOW())')
                 ->execute([$user_id, $vocab_id, $status]);
         }
         echo json_encode(['success' => true, 'message' => 'Cập nhật thành công.']);
@@ -921,7 +929,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_status' && $_SERVER['R
                         <div class="vocab-info"><strong>Nghĩa:</strong> ${nl2br(escapeHtml(vocab.meaning))}</div>
                         ${vocab.note ? `<div class="vocab-info"><strong>Ghi chú:</strong> ${nl2br(escapeHtml(vocab.note))}</div>` : ''}
                         ${vocab.plural ? `<div class="vocab-info"><strong>Số nhiều:</strong> ${escapeHtml(vocab.plural)}</div>` : ''}
-                        ${vocab.genus ? `<div class="vocab-info"><strong>Giống:</strong> ${escapeHtml(vocab.genus)}</div>` : ''}
+                        ${vocab.genus ? `<div class=\"vocab-info\"><strong>Giống:</strong> ${escapeHtml(vocab.genus)}</div>` : ''}
+                        <button class="btn btn-sm btn-primary mt-2"
+                            data-conjugation-word="${escapeHtml(vocab.word)}">
+                            ⚡ Tra cứu
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1145,6 +1157,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_status' && $_SERVER['R
             });
         });
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/assets/js/conjugation.js"></script>
 </body>
 
 </html>
