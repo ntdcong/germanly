@@ -908,6 +908,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_status' && $_SERVER['R
             totalCount.textContent = allVocabs.length;
             updateKnownCount();
 
+            function getCardBackBgByGenus(genus) {
+                if (!genus) return '#e5e7eb'; // gray
+                const g = String(genus).trim().toLowerCase();
+                if (g === 'die') return '#EF9A9A'; // red 200
+                if (g === 'der') return '#90CAF9'; // blue 200
+                if (g === 'das') return '#A5D6A7'; // green 200
+                return '#e5e7eb';
+            }
+
             function createCardElement(vocab, index) {
                 const card = document.createElement('div');
                 card.className = 'flashcard';
@@ -926,7 +935,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_status' && $_SERVER['R
                 </div>
                 <div class="card-back">
                     <div class="card-back-content">
-                        <div class="vocab-info"><strong>Nghĩa:</strong> ${nl2br(escapeHtml(vocab.meaning))}</div>
+                        <div class="vocab-info" style="font-size:24px; font-weight:bold;">
+                        ${nl2br(escapeHtml(vocab.meaning))}
+                        </div>
                         ${vocab.note ? `<div class="vocab-info"><strong>Ghi chú:</strong> ${nl2br(escapeHtml(vocab.note))}</div>` : ''}
                         ${vocab.plural ? `<div class="vocab-info"><strong>Số nhiều:</strong> ${escapeHtml(vocab.plural)}</div>` : ''}
                         ${vocab.genus ? `<div class=\"vocab-info\"><strong>Giống:</strong> ${escapeHtml(vocab.genus)}</div>` : ''}
@@ -943,6 +954,12 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_status' && $_SERVER['R
                     e.stopPropagation();
                     speakWord(vocab.word);
                 });
+
+                // Set background color based on genus
+                const backEl = card.querySelector('.card-back');
+                if (backEl) {
+                    backEl.style.background = getCardBackBgByGenus(vocab.genus);
+                }
 
                 return card;
             }

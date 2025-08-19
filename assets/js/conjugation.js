@@ -1,417 +1,454 @@
-// content.js (hoặc script gắn trong popup.html)
+// content.js
 (function () {
-    const modalId = 'cj-modal';
-  
-    // ==== Modal Bootstrap ====
-    const modalHTML = `
-    <div class="modal fade" id="${modalId}" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-md-down modal-xl">
-        <div class="modal-content shadow-lg border-0">
-          <div class="modal-header bg-primary text-white">
-            <h5 class="modal-title">
-              <i class="bi bi-book me-2"></i><span id="cj-title">Từ vựng</span>
-            </h5>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng"></button>
-          </div>
-          <div class="modal-body p-2 p-md-3">
-            <div id="cj-loading" class="text-center py-4">
-              <div class="spinner-border text-primary" role="status"></div>
-              <div class="mt-2">Đang tải...</div>
-            </div>
-            <div id="cj-result"></div>
-          </div>
-        </div>
-      </div>
-    </div>`;
-  
-    function ensureModal() {
-      if (!document.getElementById(modalId)) {
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-      }
-    }
-  
-    // ==== Custom CSS cho bảng đẹp ====
-    function addCustomStyles() {
-      if (document.getElementById('cj-custom-styles')) return;
-      
-      const style = document.createElement('style');
-      style.id = 'cj-custom-styles';
-      style.textContent = `
-        .cj-table-wrapper {
-          background: #fff;
-          border-radius: 8px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-          overflow: hidden;
-          margin-bottom: 1rem;
-        }
-        
-        .cj-table {
-          width: 100%;
-          margin: 0;
-          border-collapse: collapse;
-          font-size: 14px;
-        }
-        
-        .cj-mobile-table {
-          font-size: 16px !important;
-        }
-        
-        .cj-table th {
-          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-          font-weight: 600;
-          padding: 12px 8px;
-          text-align: center;
-          border: 1px solid #dee2e6;
-          color: #495057;
-          font-size: 13px;
-        }
-        
-        .cj-mobile-table th {
-          font-size: 15px !important;
-          padding: 14px 10px !important;
-        }
-        
-        .cj-table td {
-          padding: 10px 8px;
-          text-align: center;
-          border: 1px solid #dee2e6;
-          vertical-align: middle;
-          background: #fff;
-          transition: background-color 0.2s;
-        }
-        
-        .cj-mobile-table td {
-          padding: 14px 10px !important;
-          font-size: 16px !important;
-        }
-        
-        .cj-table tr:nth-child(even) td {
-          background: #f8f9fa;
-        }
-        
-        .cj-table tr:hover td {
-          background: #e3f2fd !important;
-        }
-        
-        .cj-table .vStm {
-          font-weight: 600;
-          color: #1976d2;
-        }
-        
-        .cj-responsive-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-          gap: 1rem;
-          width: 100%;
-        }
-        
-        @media (max-width: 768px) {
-          .modal-xl {
-            margin: 0.5rem;
-          }
-          
-          .cj-responsive-grid {
-            grid-template-columns: 1fr;
-          }
-          
-          .card-header {
-            padding: 1rem !important;
-          }
-          
-          .card-header .fw-semibold {
-            font-size: 16px;
-          }
-          
-          .btn-sm {
-            padding: 0.5rem 1rem !important;
-            font-size: 14px !important;
-          }
-        }
-        
-        @media (max-width: 576px) {
-          .modal-dialog {
-            margin: 0;
-            height: 100vh;
-          }
-          
-          .cj-section-title {
-            font-size: 16px !important;
-            padding: 12px 15px !important;
-          }
-          
-          .card-header .fw-semibold {
-            font-size: 15px !important;
-          }
-          
-          .nav-tabs .nav-link {
-            font-size: 14px !important;
-            padding: 12px 16px !important;
-          }
-          
-          .tab-content h6 {
-            font-size: 16px !important;
-          }
-        }
-        
-        .cj-section-title {
-          font-size: 14px;
-          font-weight: 600;
-          color: #495057;
-          margin-bottom: 8px;
-          padding: 8px 12px;
-          background: #f1f3f4;
-          border-radius: 4px;
-          border-left: 4px solid #1976d2;
-        }
-      `;
-      document.head.appendChild(style);
-    }
-  
-    // ==== Fetch HTML từ proxy ====
-    async function fetchVerbformen(word) {
-      const url = `/api/proxy.php?word=${encodeURIComponent(word)}`;
-      const res = await fetch(url, { cache: 'no-store' });
-      const text = await res.text();
-      if (!res.ok) {
-        throw new Error(`Proxy HTTP ${res.status}: ${text.slice(0, 200)}`);
-      }
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(text, "text/html");
-      return { doc, raw: text };
-    }
-  
-    // ==== Cải thiện bảng ====
-    function improveTable(table) {
-      // Thêm class CSS
-      table.className = 'cj-table';
-      
-      // Xóa images không cần thiết
-      table.querySelectorAll('img').forEach(img => {
-        if (img.src.includes('s.svg')) img.remove();
-      });
-      
-      // Cải thiện header
-      table.querySelectorAll('th').forEach(th => {
-        th.style.whiteSpace = 'nowrap';
-      });
-      
-      // Làm sạch nội dung
-      table.querySelectorAll('td, th').forEach(cell => {
-        cell.innerHTML = cell.innerHTML.replace(/\s+/g, ' ').trim();
-      });
-      
-      return table;
-    }
-  
-    // ==== Tạo layout responsive cho nhiều bảng ====
-    function createResponsiveLayout(tables, title) {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'mb-4';
-      
-      if (title) {
-        const titleEl = document.createElement('div');
-        titleEl.className = 'cj-section-title';
-        titleEl.textContent = title;
-        wrapper.appendChild(titleEl);
-      }
-      
-      if (tables.length === 1) {
-        // Một bảng - hiển thị full width
-        const tableWrapper = document.createElement('div');
-        tableWrapper.className = 'cj-table-wrapper';
-        tableWrapper.appendChild(tables[0]);
-        wrapper.appendChild(tableWrapper);
-      } else if (tables.length <= 4) {
-        // 2-4 bảng - dùng grid responsive
-        const grid = document.createElement('div');
-        grid.className = 'cj-responsive-grid';
-        
-        tables.forEach(table => {
-          const tableWrapper = document.createElement('div');
-          tableWrapper.className = 'cj-table-wrapper';
-          tableWrapper.appendChild(table);
-          grid.appendChild(tableWrapper);
-        });
-        
-        wrapper.appendChild(grid);
-      } else {
-        // Nhiều bảng - nhóm thành từng cặp
-        for (let i = 0; i < tables.length; i += 2) {
-          const grid = document.createElement('div');
-          grid.className = 'cj-responsive-grid';
-          grid.style.marginBottom = '1rem';
-          
-          const table1 = tables[i];
-          const wrapper1 = document.createElement('div');
-          wrapper1.className = 'cj-table-wrapper';
-          wrapper1.appendChild(table1);
-          grid.appendChild(wrapper1);
-          
-          if (tables[i + 1]) {
-            const table2 = tables[i + 1];
-            const wrapper2 = document.createElement('div');
-            wrapper2.className = 'cj-table-wrapper';
-            wrapper2.appendChild(table2);
-            grid.appendChild(wrapper2);
-          }
-          
-          wrapper.appendChild(grid);
-        }
-      }
-      
-      return wrapper;
-    }
-  
-    // ==== Render UI từ HTML lấy được ====
-    function buildHtmlFromDoc(doc, word) {
-      addCustomStyles(); // Thêm CSS
-      
-      const container = document.createElement("div");
-      const uniqueId = Math.random().toString(36).substring(2, 8);
-  
-      // Header
-      const header = document.createElement("div");
-      header.className = "d-flex align-items-center mb-4 p-3 bg-light rounded";
-      header.innerHTML = `
-        <h4 class="mb-0 fw-bold flex-grow-1 text-primary">
-          <i class="bi bi-translate me-2"></i>${word}
-        </h4>
-        <a href="https://www.verbformen.com/?w=${encodeURIComponent(word)}" 
-           target="_blank" class="btn btn-sm btn-outline-primary">
-           <i class="bi bi-box-arrow-up-right me-1"></i>Trang gốc
-        </a>
-      `;
-      container.appendChild(header);
-  
-      const sections = doc.querySelectorAll('section.rBox.rBoxWht');
-  
-      // ==== Declension (Danh từ) ====
-      let declSec = null;
-      for (const sec of sections) {
-        if (sec.querySelector('.vDkl')) { declSec = sec; break; }
-      }
-      if (declSec) {
-        const tables = declSec.querySelectorAll('.vDkl');
-        if (tables.length > 0) {
-          const improvedTables = Array.from(tables).map(t => improveTable(t.cloneNode(true)));
-          const layout = createResponsiveLayout(improvedTables, '📘 Biến cách (Danh từ)');
-          
-          const declId = `decl-${uniqueId}`;
-          const card = document.createElement("div");
-          card.className = "card mb-4 border-0 shadow";
-          card.innerHTML = `
-            <div class="card-header bg-gradient bg-primary text-white d-flex justify-content-between align-items-center">
-              <span class="fw-semibold"><i class="bi bi-table me-2"></i>Biến cách (Danh từ)</span>
-              <button class="btn btn-sm btn-light toggle-btn" data-target="#${declId}">
-                <i class="bi bi-eye me-1"></i>Hiện
-              </button>
-            </div>
-            <div id="${declId}" class="collapse">
-              <div class="card-body p-3"></div>
-            </div>
-          `;
-          
-          card.querySelector(`#${declId} .card-body`).appendChild(layout);
-          container.appendChild(card);
-        }
-      }
-  
-      // ==== Conjugation (Động từ) ====
-      let verbSec = null, maxTbl = 0;
-      for (const sec of sections) {
-        const t = sec.querySelectorAll('.vTbl');
-        if (t.length > maxTbl) { maxTbl = t.length; verbSec = sec; }
-      }
-      if (verbSec && maxTbl >= 2) {
-        const tables = verbSec.querySelectorAll('.vTbl');
-        const improvedTables = Array.from(tables).map(t => improveTable(t.cloneNode(true)));
-        const layout = createResponsiveLayout(improvedTables, '⚡ Chia động từ');
-        
-        const verbId = `verb-${uniqueId}`;
-        const card = document.createElement("div");
-        card.className = "card mb-4 border-0 shadow";
-        card.innerHTML = `
-          <div class="card-header bg-gradient bg-success text-white d-flex justify-content-between align-items-center">
-            <span class="fw-semibold"><i class="bi bi-lightning-charge me-2"></i>Chia động từ</span>
-            <button class="btn btn-sm btn-light toggle-btn" data-target="#${verbId}">
-              <i class="bi bi-eye me-1"></i>Hiện
+  const modalId = 'cj-modal';
+  const STORAGE_NS = 'cj-';
+  const API_JSON = '/api/conjugation.php';
+  const API_PROXY = '/api/proxy.php';
+
+  // ===== Modal Bootstrap =====
+  const modalHTML = `
+  <div class="modal fade" id="${modalId}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-md-down modal-xl">
+      <div class="modal-content shadow-lg border-0">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title d-flex align-items-center">
+            <i class="bi bi-translate me-2"></i>
+            <span id="cj-title">Từ vựng</span>
+          </h5>
+          <div class="d-flex gap-2 me-2">
+            <button class="btn btn-sm btn-light" id="cj-copy-csv" title="Sao chép CSV 6 ngôi">
+              <i class="bi bi-clipboard-check"></i>
+            </button>
+            <button class="btn btn-sm btn-light" id="cj-open-source" title="Mở trang gốc">
+              <i class="bi bi-box-arrow-up-right"></i>
             </button>
           </div>
-          <div id="${verbId}" class="collapse">
-            <div class="card-body p-3"></div>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng"></button>
+        </div>
+        <div class="modal-body p-0">
+          <div class="px-3 pt-3">
+            <ul class="nav nav-tabs" id="cj-tabs" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-verb" data-bs-toggle="tab" data-bs-target="#pane-verb" type="button" role="tab">
+                  Động từ
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="tab-overview" data-bs-toggle="tab" data-bs-target="#pane-overview" type="button" role="tab">
+                  Tổng quan
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-noun" data-bs-toggle="tab" data-bs-target="#pane-noun" type="button" role="tab">
+                  Danh/Tính từ
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-tools" data-bs-toggle="tab" data-bs-target="#pane-tools" type="button" role="tab">
+                  Công cụ
+                </button>
+              </li>
+            </ul>
           </div>
-        `;
-        
-        card.querySelector(`#${verbId} .card-body`).appendChild(layout);
+
+          <div class="tab-content p-3">
+            <div class="tab-pane fade show active" id="pane-overview" role="tabpanel">
+              <div id="cj-overview"></div>
+            </div>
+            <div class="tab-pane fade" id="pane-verb" role="tabpanel">
+              <div id="cj-verb"></div>
+            </div>
+            <div class="tab-pane fade" id="pane-noun" role="tabpanel">
+              <div id="cj-noun"></div>
+            </div>
+            <div class="tab-pane fade" id="pane-tools" role="tabpanel">
+              <div id="cj-tools"></div>
+            </div>
+          </div>
+
+          <div id="cj-loading" class="text-center py-4">
+            <div class="spinner-border text-primary" role="status"></div>
+            <div class="mt-2">Đang tải...</div>
+          </div>
+          <div id="cj-result"></div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  function ensureModal() {
+    if (!document.getElementById(modalId)) {
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+      addCustomStyles();
+    }
+  }
+
+  // ===== Styles =====
+  function addCustomStyles() {
+    if (document.getElementById('cj-custom-styles')) return;
+
+    const style = document.createElement('style');
+    style.id = 'cj-custom-styles';
+    style.textContent = `
+      .cj-table-wrapper {
+        background: var(--bs-body-bg,#fff);
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,.08);
+        overflow: hidden;
+        margin-bottom: 1rem;
+      }
+      .cj-table { width:100%; border-collapse: collapse; font-size:14px; }
+      .cj-table th, .cj-table td { border: 1px solid #dee2e6; padding: 10px 8px; text-align:center; vertical-align: middle; }
+      .cj-table th { background: linear-gradient(135deg, #f8f9fa, #e9ecef); font-weight:600; font-size:13px; color:#495057; }
+      .cj-table tr:nth-child(even) td { background:#f8f9fa; }
+      .cj-table tr:hover td { background:#e7f1ff; }
+      .cj-badge { display:inline-block; padding:.25rem .5rem; border-radius:.5rem; background:#f1f3f5; color:#495057; margin-right:.5rem; }
+      .cj-toolbar { display:flex; gap:.5rem; flex-wrap:wrap; }
+      .cj-section-title { font-weight:600; margin-bottom:.5rem; padding:.5rem .75rem; border-left:4px solid #1976d2; background:#f6f8fa; border-radius:4px; }
+      .cj-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(300px,1fr)); gap:1rem; }
+      @media (max-width: 576px) {
+        .cj-table { font-size:16px }
+        .cj-table th { font-size:15px }
+        .modal-dialog { margin:0; height:100vh; }
+      }
+      /* Dark mode friendly */
+      @media (prefers-color-scheme: dark) {
+        .cj-table th { background: #2b2f36; color:#dfe4ea; border-color:#444 }
+        .cj-table td { background:#1f2328; color:#e6edf3; border-color:#333 }
+        .cj-table tr:nth-child(even) td { background:#20252b; }
+        .cj-table tr:hover td { background:#2a3440; }
+        .cj-section-title { background:#222730; color:#dfe4ea; border-left-color:#4ea1ff; }
+        .cj-table-wrapper { background:#0d1117; box-shadow: 0 2px 10px rgba(0,0,0,.4); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // ===== Utilities =====
+  function htmlToEl(html) {
+    const t = document.createElement('template');
+    t.innerHTML = html.trim();
+    return t.content.firstElementChild;
+  }
+  function copyToClipboard(text) {
+    return navigator.clipboard?.writeText(text);
+  }
+  function toCSV(rows) {
+    return rows.map(r => r.map(v => `"${(v??'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+  }
+  function byId(id){ return document.getElementById(id); }
+
+  // ===== Fetch JSON API =====
+  async function fetchJSON(word) {
+    const url = `${API_JSON}?word=${encodeURIComponent(word)}`;
+    const res = await fetch(url, { cache: 'no-store' });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(`API JSON error`);
+    return data;
+  }
+  // Optional: fetch full HTML proxy
+  async function fetchProxy(word) {
+    const url = `${API_PROXY}?word=${encodeURIComponent(word)}`;
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
+    const text = await res.text();
+    const parser = new DOMParser();
+    return { raw:text, doc: parser.parseFromString(text,'text/html') };
+  }
+
+  // ===== Build “6 ngôi” (from JSON) =====
+  function buildSixPersonsTable(simple, title) {
+    const order = ['ich','du','er','wir','ihr','sie'];
+    const orderLabel = {ich:'ich',du:'du',er:'er/sie/es',wir:'wir',ihr:'ihr',sie:'sie/Sie'};
+    const groups = [
+      ['present','Präsens (hiện tại)'],
+      ['imperfect','Präteritum (quá khứ đơn)'],
+      ['subjunctive_present','Konjunktiv I (giả định hiện tại)'],
+      ['subjunctive_imperfect','Konjunktiv II (giả định quá khứ)'],
+      ['imperative','Imperativ (mệnh lệnh)'],
+    ].filter(([k]) => simple && simple[k]);
+
+    const grid = document.createElement('div');
+    grid.className = 'cj-grid';
+
+    for (const [key, caption] of groups) {
+      const t = document.createElement('table');
+      t.className = 'cj-table';
+      t.innerHTML = `
+        <thead><tr><th colspan="2">${caption}</th></tr></thead>
+        <tbody></tbody>`;
+      const tb = t.querySelector('tbody');
+      order.forEach(p => {
+        const form = simple[key][p] ?? '';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td style="white-space:nowrap;font-weight:600">${orderLabel[p]}</td><td>${form||'<span class="text-muted">—</span>'}</td>`;
+        tb.appendChild(tr);
+      });
+
+      const wrap = document.createElement('div');
+      wrap.className = 'cj-table-wrapper';
+      wrap.appendChild(t);
+      grid.appendChild(wrap);
+    }
+
+    const card = htmlToEl(`
+      <div class="card mb-4 border-0 shadow">
+        <div class="card-header bg-gradient bg-success text-white d-flex justify-content-between align-items-center">
+          <span class="fw-semibold"><i class="bi bi-lightning-charge me-2"></i>${title||'Chia động từ (6 ngôi)'} </span>
+          <div class="cj-toolbar">
+            <button class="btn btn-sm btn-light" data-action="copy-forms"><i class="bi bi-clipboard"></i> Copy</button>
+            <button class="btn btn-sm btn-light" data-action="download-csv"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</button>
+          </div>
+        </div>
+        <div class="card-body p-3"></div>
+      </div>`);
+    card.querySelector('.card-body').appendChild(grid);
+
+    // Actions
+    card.querySelector('[data-action="copy-forms"]').addEventListener('click', () => {
+      const rows = [['Tense','Pronoun','Form']];
+      for (const [key] of groups) {
+        order.forEach(p => rows.push([key, p, simple[key][p] ?? '']));
+      }
+      copyToClipboard(toCSV(rows));
+    });
+    card.querySelector('[data-action="download-csv"]').addEventListener('click', () => {
+      const rows = [['Tense','Pronoun','Form']];
+      for (const [key] of groups) {
+        order.forEach(p => rows.push([key, p, simple[key][p] ?? '']));
+      }
+      const blob = new Blob([toCSV(rows)], {type:'text/csv;charset=utf-8;'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'conjugation.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    return card;
+  }
+
+  // ===== Render raw “simple section” HTML (đã beautify) =====
+  function beautifyRawSection(rawHTML) {
+    if (!rawHTML) return null;
+    const container = document.createElement('div');
+    container.innerHTML = rawHTML;
+
+    // Xử lý bảng cho đẹp hơn
+    container.querySelectorAll('table').forEach(table => {
+      table.className = 'cj-table';
+      table.querySelectorAll('img').forEach(img => {
+        if (/(s\.svg|audio|flag)/i.test(img.src||'')) img.remove();
+      });
+      table.querySelectorAll('td,th').forEach(cell => {
+        cell.innerHTML = cell.innerHTML.replace(/\s+/g,' ').trim();
+      });
+    });
+
+    // Bọc grid
+    const tables = Array.from(container.querySelectorAll('table'));
+    if (tables.length===0) return null;
+
+    const grid = document.createElement('div');
+    grid.className='cj-grid';
+    tables.forEach(t=>{
+      const w = document.createElement('div');
+      w.className='cj-table-wrapper';
+      w.appendChild(t);
+      grid.appendChild(w);
+    });
+
+    const card = htmlToEl(`
+      <div class="card mb-4 border-0 shadow">
+        <div class="card-header bg-gradient bg-primary text-white d-flex justify-content-between align-items-center">
+          <span class="fw-semibold"><i class="bi bi-table me-2"></i>Simple conjugated verbs (đầy đủ bảng)</span>
+          <button class="btn btn-sm btn-light" data-action="toggle"><i class="bi bi-eye-slash"></i> Ẩn/Hiện</button>
+        </div>
+        <div class="card-body p-3"></div>
+      </div>`);
+    const body = card.querySelector('.card-body');
+    body.appendChild(grid);
+
+    card.querySelector('[data-action="toggle"]').addEventListener('click', ()=>{
+      body.style.display = (body.style.display==='none' ? 'block' : 'none');
+    });
+
+    return card;
+  }
+
+  // ===== Render declension/others from full page (nếu cần) =====
+  function buildFromFullDoc(doc, word) {
+    const container = document.createElement('div');
+
+    // Declension section
+    const sections = doc.querySelectorAll('section.rBox.rBoxWht');
+    let declSec = null;
+    for (const sec of sections) {
+      if (sec.querySelector('.vDkl')) { declSec = sec; break; }
+    }
+    if (declSec) {
+      const tables = declSec.querySelectorAll('.vDkl');
+      if (tables.length>0) {
+        const grid = document.createElement('div');
+        grid.className='cj-grid';
+        Array.from(tables).forEach(t=>{
+          const tbl=t.cloneNode(true);
+          tbl.className='cj-table';
+          tbl.querySelectorAll('img').forEach(img => { if (/(s\.svg|audio|flag)/i.test(img.src||'')) img.remove(); });
+          tbl.querySelectorAll('td,th').forEach(cell => cell.innerHTML = cell.innerHTML.replace(/\s+/g,' ').trim());
+          const w=document.createElement('div'); w.className='cj-table-wrapper'; w.appendChild(tbl);
+          grid.appendChild(w);
+        });
+
+        const card = htmlToEl(`
+          <div class="card mb-4 border-0 shadow">
+            <div class="card-header bg-gradient bg-info text-white d-flex justify-content-between align-items-center">
+              <span class="fw-semibold"><i class="bi bi-table me-2"></i>Biến cách (Danh/Tính từ)</span>
+              <button class="btn btn-sm btn-light" data-action="toggle"><i class="bi bi-eye-slash"></i> Ẩn/Hiện</button>
+            </div>
+            <div class="card-body p-3"></div>
+          </div>`);
+        card.querySelector('.card-body').appendChild(grid);
+        card.querySelector('[data-action="toggle"]').addEventListener('click', ()=>{
+          const b = card.querySelector('.card-body');
+          b.style.display = (b.style.display==='none' ? 'block' : 'none');
+        });
+
         container.appendChild(card);
       }
-  
-      // ==== Fallback khi không có bảng ====
-      if (!declSec && !verbSec) {
-        const warn = document.createElement("div");
-        warn.className = "alert alert-warning border-0 shadow-sm";
-        warn.innerHTML = `
-          <i class="bi bi-exclamation-triangle me-2"></i>
-          Không tìm thấy bảng biến cách/chia động từ trong trang nguồn.
-        `;
-        container.appendChild(warn);
-      }
-  
-      // ==== Gắn toggle với Bootstrap Collapse ====
-      container.querySelectorAll(".toggle-btn").forEach(btn => {
-        const targetId = btn.getAttribute("data-target");
-        const target = container.querySelector(targetId);
-        
-        btn.addEventListener("click", (e) => {
-          e.preventDefault();
-          const isCollapsed = target.classList.contains('show');
-          
-          if (isCollapsed) {
-            target.classList.remove('show');
-            target.style.display = 'none';
-            btn.innerHTML = '<i class="bi bi-eye me-1"></i>Hiện';
-          } else {
-            target.style.display = 'block';
-            target.classList.add('show');
-            btn.innerHTML = '<i class="bi bi-eye-slash me-1"></i>Ẩn';
-          }
-        });
-      });
-  
-      return container;
+    } else {
+      const warn = htmlToEl(`<div class="alert alert-warning border-0 shadow-sm">
+        <i class="bi bi-exclamation-triangle me-2"></i>Không tìm thấy bảng biến cách trong trang gốc.
+      </div>`);
+      container.appendChild(warn);
     }
-  
-    // ==== Lắng nghe click ====
-    document.addEventListener('click', async (ev) => {
-      const t = ev.target.closest('[data-conjugation-word]');
-      if (!t) return;
-      ev.preventDefault();
-      const word = t.getAttribute('data-conjugation-word');
-      ensureModal();
-      const modalEl = document.getElementById(modalId);
-      const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
-  
-      document.getElementById('cj-title').textContent = `Từ vựng: ${word}`;
-      document.getElementById('cj-loading').style.display = 'block';
-      document.getElementById('cj-result').innerHTML = '';
-      bsModal.show();
-  
-      try {
-        const { doc } = await fetchVerbformen(word);
-        const node = buildHtmlFromDoc(doc, word);
-        document.getElementById('cj-loading').style.display = 'none';
-        const resultEl = document.getElementById('cj-result');
-        resultEl.innerHTML = '';
-        resultEl.appendChild(node);
-      } catch (e) {
-        console.error('Verbformen error:', e);
-        document.getElementById('cj-loading').style.display = 'none';
-        document.getElementById('cj-result').innerHTML = `
-          <div class="alert alert-danger border-0 shadow-sm">
-            <i class="bi bi-exclamation-circle me-2"></i>
-            <strong>Không thể tải dữ liệu.</strong><br>
-            <small class="text-muted">${(e && e.message) ? e.message : String(e)}</small>
-          </div>`;
+    return container;
+  }
+
+  // ===== Main render =====
+  async function renderWord(word) {
+    const loading = byId('cj-loading');
+    const paneOverview = byId('cj-overview');
+    const paneVerb = byId('cj-verb');
+    const paneNoun = byId('cj-noun');
+    const btnSource = byId('cj-open-source');
+    const btnCopyCsv = byId('cj-copy-csv');
+
+    // reset
+    paneOverview.innerHTML = '';
+    paneVerb.innerHTML = '';
+    paneNoun.innerHTML = '';
+    loading.style.display = 'block';
+
+    try {
+      const data = await fetchJSON(word);
+      loading.style.display = 'none';
+
+      // Header buttons
+      btnSource.onclick = () => window.open(data.meta?.source || `https://www.verbformen.com/?w=${encodeURIComponent(word)}`, '_blank');
+      btnCopyCsv.onclick = () => {
+        const s = data.simple || {};
+        const order = ['ich','du','er','wir','ihr','sie'];
+        const rows = [['Tense','Pronoun','Form']];
+        Object.keys(s).forEach(k => order.forEach(p => rows.push([k,p,s[k]?.[p] ?? ''])));
+        copyToClipboard(toCSV(rows));
+      };
+
+      // Overview: badges
+      const ov = htmlToEl(`
+        <div class="cj-section-title"><i class="bi bi-info-circle me-2"></i>Thông tin</div>
+      `);
+      const badges = htmlToEl(`<div class="mb-3"></div>`);
+      badges.appendChild(htmlToEl(`<span class="cj-badge">Từ: <strong>${word}</strong></span>`));
+      if (data.meta?.source) badges.appendChild(htmlToEl(`<span class="cj-badge">Nguồn: Verbformen</span>`));
+      if (data.meta?.fetched_at) badges.appendChild(htmlToEl(`<span class="cj-badge">Cập nhật: ${new Date(data.meta.fetched_at).toLocaleString()}</span>`));
+      paneOverview.appendChild(ov);
+      paneOverview.appendChild(badges);
+
+      // Verb – Six-person tables
+      if (data.simple) {
+        paneVerb.appendChild(buildSixPersonsTable(data.simple, 'Chia động từ (6 ngôi)'));
       }
-    });
+      // Verb – Raw section (đầy đủ bảng simple)
+      const cardRaw = beautifyRawSection(data.raw_section_html);
+      if (cardRaw) paneVerb.appendChild(cardRaw);
+
+      // Noun/Adj – Tuỳ chọn: tải toàn trang để lấy bảng biến cách
+      const nounTools = htmlToEl(`
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <button class="btn btn-outline-primary btn-sm" id="cj-load-full">
+            <i class="bi bi-cloud-download"></i> Tải toàn trang để hiển thị thêm bảng biến cách
+          </button>
+          <div class="text-muted small">Sử dụng khi cần hiển thị nhiều bảng khác từ trang gốc</div>
+        </div>`);
+      paneNoun.appendChild(nounTools);
+      nounTools.querySelector('#cj-load-full').addEventListener('click', async () => {
+        nounTools.querySelector('#cj-load-full').disabled = true;
+        nounTools.querySelector('#cj-load-full').innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang tải...';
+        try {
+          const { doc } = await fetchProxy(word);
+          const node = buildFromFullDoc(doc, word);
+          paneNoun.appendChild(node);
+        } catch (e) {
+          paneNoun.appendChild(htmlToEl(`<div class="alert alert-danger mt-2">Không thể tải trang gốc.</div>`));
+        } finally {
+          nounTools.querySelector('#cj-load-full').disabled = false;
+          nounTools.querySelector('#cj-load-full').innerHTML = '<i class="bi bi-cloud-download"></i> Tải toàn trang để hiển thị thêm bảng biến cách';
+        }
+      });
+
+      // Tools – quick copy
+      const tools = htmlToEl(`
+        <div class="cj-section-title"><i class="bi bi-tools me-2"></i>Công cụ</div>
+      `);
+      const actions = htmlToEl(`
+        <div class="cj-toolbar">
+          <button class="btn btn-sm btn-outline-secondary" id="cj-copy-present"><i class="bi bi-clipboard"></i> Copy Präsens</button>
+          <button class="btn btn-sm btn-outline-secondary" id="cj-copy-imperfect"><i class="bi bi-clipboard"></i> Copy Präteritum</button>
+        </div>`);
+      tools.appendChild(actions);
+      byId('cj-tools').appendChild(tools);
+
+      function copyTense(tense) {
+        const s = data.simple?.[tense];
+        if (!s) return;
+        const order = ['ich','du','er','wir','ihr','sie'];
+        const lines = order.map(p => `${p}\t${s[p] ?? ''}`);
+        copyToClipboard(lines.join('\n'));
+      }
+      byId('cj-copy-present').onclick = () => copyTense('present');
+      byId('cj-copy-imperfect').onclick = () => copyTense('imperfect');
+
+    } catch (e) {
+      console.error('Conjugation UI error:', e);
+      loading.style.display = 'none';
+      byId('cj-overview').innerHTML = `
+        <div class="alert alert-danger border-0 shadow-sm">
+          <i class="bi bi-exclamation-circle me-2"></i>
+          <strong>Không thể tải dữ liệu.</strong><br>
+          <small class="text-muted">${(e && e.message) ? e.message : String(e)}</small>
+        </div>`;
+    }
+  }
+
+  // ===== Event binding: open modal =====
+  document.addEventListener('click', async (ev) => {
+    const t = ev.target.closest('[data-conjugation-word]');
+    if (!t) return;
+    ev.preventDefault();
+    const word = t.getAttribute('data-conjugation-word');
+    ensureModal();
+    const modalEl = document.getElementById(modalId);
+    const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+    byId('cj-title').textContent = `Từ vựng: ${word}`;
+    byId('cj-loading').style.display = 'block';
+    byId('cj-overview').innerHTML = '';
+    byId('cj-verb').innerHTML = '';
+    byId('cj-noun').innerHTML = '';
+    byId('cj-tools').innerHTML = '';
+    bsModal.show();
+
+    renderWord(word);
+  });
 })();
