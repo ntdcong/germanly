@@ -48,7 +48,7 @@
 ## 📦 Installation Guide
 1. **Clone the Repository:**
    ```bash
-   git clone https://github.com/yourusername/deutsch-flashcard.git
+   git clone https://github.com/ntdcong/deutsch-flashcard.git
    cd deutsch-flashcard
    ```
 
