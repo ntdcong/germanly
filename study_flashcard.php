@@ -1,6 +1,6 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+session_start();
 }
 require 'db.php';
 
@@ -16,26 +16,26 @@ if ($token !== '') {
     $notebook_id = (int) $notebook['id'];
     $user_id = $_SESSION['user_id'] ?? null;  // Không bắt buộc đăng nhập
 } else {
-    if (!isset($_SESSION['user_id'])) {
-        header('Location: login.php');
-        exit;
-    }
+if (!isset($_SESSION['user_id'])) {
+    header('Location: login.php');
+    exit;
+}
     $user_id = (int) $_SESSION['user_id'];
     $notebook_id = (int) ($_GET['notebook_id'] ?? 0);
-    // Kiểm tra quyền sở hữu sổ tay
-    $stmt = $pdo->prepare('SELECT * FROM notebooks WHERE id=? AND user_id=?');
-    $stmt->execute([$notebook_id, $user_id]);
-    $notebook = $stmt->fetch();
-    if (!$notebook) {
-        die('Không tìm thấy sổ tay hoặc bạn không có quyền truy cập!');
+// Kiểm tra quyền sở hữu sổ tay
+$stmt = $pdo->prepare('SELECT * FROM notebooks WHERE id=? AND user_id=?');
+$stmt->execute([$notebook_id, $user_id]);
+$notebook = $stmt->fetch();
+if (!$notebook) {
+    die('Không tìm thấy sổ tay hoặc bạn không có quyền truy cập!');
     }
 }
 // Lấy tất cả từ vựng một lần để tải trước
 if ($user_id) {
-    $stmt = $pdo->prepare('SELECT v.*, ls.status FROM vocabularies v
-        LEFT JOIN learning_status ls ON v.id = ls.vocab_id AND ls.user_id = ?
-        WHERE v.notebook_id = ? ORDER BY v.created_at DESC');
-    $stmt->execute([$user_id, $notebook_id]);
+$stmt = $pdo->prepare('SELECT v.*, ls.status FROM vocabularies v
+    LEFT JOIN learning_status ls ON v.id = ls.vocab_id AND ls.user_id = ?
+    WHERE v.notebook_id = ? ORDER BY v.created_at DESC');
+$stmt->execute([$user_id, $notebook_id]);
 } else {
     // Truy cập công khai: không có trạng thái cá nhân
     $stmt = $pdo->prepare('SELECT v.*, NULL as status FROM vocabularies v WHERE v.notebook_id = ? ORDER BY v.created_at DESC');
@@ -80,680 +80,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_status' && $_SERVER['R
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-    <style>
-        :root {
-            --primary-bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            --card-bg: #ffffff;
-            --card-radius: 20px;
-            --card-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-            --transition-speed: 0.4s;
-            --known-color: #48bb78;
-            --unknown-color: #ed8936;
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            background: var(--primary-bg);
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .navbar {
-            background-color: rgba(255, 255, 255, 0.95) !important;
-            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
-            backdrop-filter: blur(10px);
-            padding: 12px 0;
-            flex-shrink: 0;
-        }
-
-        .navbar-brand {
-            font-weight: 600;
-            color: #4a5568 !important;
-        }
-
-        .main-content {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px 15px;
-            width: 100%;
-        }
-
-        .header-section {
-            text-align: center;
-            margin-bottom: 25px;
-            color: white;
-            width: 100%;
-        }
-
-        .header-section h1 {
-            font-size: 1.8rem;
-            font-weight: 700;
-            margin-bottom: 10px;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .progress-container {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 50px;
-            padding: 3px;
-            margin: 0 auto 15px;
-            max-width: 300px;
-        }
-
-        .progress-bar {
-            height: 12px;
-            background: white;
-            border-radius: 50px;
-            transition: width 0.3s ease;
-        }
-
-        .stats-container {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-
-        .stat-badge {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 50px;
-            font-size: 0.9rem;
-            font-weight: 500;
-            height: 40px;
-        }
-
-        .shuffle-badge {
-            transition: all 0.2s ease;
-        }
-
-        .shuffle-badge:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: scale(1.05);
-        }
-
-        .shuffle-badge:active {
-            transform: scale(0.95);
-        }
-
-        .shuffle-badge.active {
-            background: rgba(255, 255, 255, 0.4);
-        }
-
-        .card-stack-container {
-            perspective: 2000px;
-            width: 100%;
-            max-width: 380px;
-            height: 260px;
-            margin: 0 auto 25px;
-            position: relative;
-        }
-
-        .flashcard {
-            width: 100%;
-            height: 100%;
-            position: absolute;
-            top: 0;
-            left: 0;
-            cursor: grab;
-            user-select: none;
-            transform-style: preserve-3d;
-            transition: transform var(--transition-speed) cubic-bezier(0.4, 0.2, 0.2, 1),
-                opacity var(--transition-speed) cubic-bezier(0.4, 0.2, 0.2, 1);
-            z-index: 2;
-            border-radius: var(--card-radius);
-        }
-
-        .flashcard.dragging {
-            transition: none;
-        }
-
-        .flashcard.card--next {
-            transform: translateY(8px) scale(0.96);
-            opacity: 0.8;
-            pointer-events: none;
-            z-index: 1;
-        }
-
-        .flashcard.card--after-next {
-            transform: translateY(16px) scale(0.92);
-            opacity: 0.6;
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        .flashcard.card--out {
-            pointer-events: none;
-        }
-
-        .card-inner {
-            width: 100%;
-            height: 100%;
-            position: relative;
-            transform-style: preserve-3d;
-            transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
-            border-radius: var(--card-radius);
-        }
-
-        .flashcard.flipped .card-inner {
-            transform: rotateY(180deg);
-        }
-
-        .card-front,
-        .card-back {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            border-radius: var(--card-radius);
-            backface-visibility: hidden;
-            background: var(--card-bg);
-            box-shadow: var(--card-shadow);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 30px 25px;
-            text-align: center;
-            overflow: hidden;
-        }
-
-        .card-back {
-            transform: rotateY(180deg);
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            background: rgb(208, 222, 255);
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 30px 25px;
-            text-align: center;
-            overflow: hidden;
-        }
-
-        .card-back-content {
-            width: 100%;
-        }
-
-        .card-front #word-display {
-            font-size: 2.2rem;
-            font-weight: 700;
-            color: #2d3748;
-            margin-bottom: 10px;
-        }
-
-        .card-front .phonetic {
-            font-size: 1.1rem;
-            color: #718096;
-            margin-bottom: 20px;
-        }
-
-        .card-back .vocab-info {
-            margin-bottom: 15px;
-        }
-
-        .card-back .vocab-info strong {
-            color: #4a5568;
-        }
-
-        .swipe-indicator {
-            position: absolute;
-            top: 20px;
-            border-radius: 12px;
-            padding: 8px 20px;
-            font-weight: 600;
-            color: #fff;
-            opacity: 0;
-            transition: opacity 0.2s ease-in-out;
-            text-transform: uppercase;
-            pointer-events: none;
-            font-size: 0.9rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .swipe-indicator.left {
-            right: 20px;
-            background-color: var(--unknown-color);
-            border: 2px solid rgba(237, 137, 54, 0.8);
-            transform: rotate(10deg);
-        }
-
-        .swipe-indicator.right {
-            left: 20px;
-            background-color: var(--known-color);
-            border: 2px solid rgba(56, 161, 105, 0.8);
-            transform: rotate(-10deg);
-        }
-
-        .action-buttons {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-bottom: 25px;
-            flex-wrap: wrap;
-        }
-
-        .btn-action {
-            min-width: 120px;
-            padding: 12px 20px;
-            border-radius: 50px;
-            font-weight: 600;
-            font-size: 1rem;
-            transition: all 0.2s ease;
-            border: none;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        .btn-action:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-        }
-
-        .btn-action:active {
-            transform: translateY(0);
-        }
-
-        .navigation-buttons {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-
-        .btn-nav {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(255, 255, 255, 0.9);
-            border: none;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            font-size: 1.2rem;
-            color: #4a5568;
-            transition: all 0.2s ease;
-        }
-
-        .btn-nav:hover {
-            background: white;
-            transform: scale(1.1);
-        }
-
-        .status-buttons {
-            display: flex;
-            justify-content: center;
-            gap: 30px;
-            margin-top: 10px;
-        }
-
-        .btn-status {
-            width: 70px;
-            height: 70px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: none;
-            font-size: 1.5rem;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-            transition: all 0.2s ease;
-        }
-
-        .btn-status:hover {
-            transform: scale(1.1);
-        }
-
-        .btn-unknown {
-            background: linear-gradient(135deg, #FF8E53 0%, #FE6B8B 100%);
-            color: white;
-        }
-
-        .btn-known {
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-            color: white;
-        }
-
-        .empty-state {
-            text-align: center;
-            color: white;
-            padding: 40px 20px;
-        }
-
-        .empty-state i {
-            font-size: 3rem;
-            margin-bottom: 20px;
-            opacity: 0.8;
-        }
-
-        /* CSS cho thông báo toast */
-        .toast-notification {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%) translateY(100px);
-            background-color: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 50px;
-            font-weight: 500;
-            z-index: 1000;
-            opacity: 0;
-            transition: transform 0.3s ease, opacity 0.3s ease;
-        }
-
-        .toast-notification.show {
-            transform: translateX(-50%) translateY(0);
-            opacity: 1;
-        }
-
-        /* CSS cho nút trộn */
-        .shuffle-container {
-            display: flex;
-            justify-content: center;
-        }
-
-        #btn-shuffle {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(255, 255, 255, 0.9);
-            color: #4a5568;
-            transition: all 0.2s ease;
-            height: 40px;
-        }
-
-        #btn-shuffle:hover {
-            background: white;
-            transform: translateY(-2px);
-        }
-
-        #btn-shuffle:active {
-            transform: translateY(0);
-        }
-
-        .action-buttons {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-
-        .btn-action {
-            min-width: 120px;
-            padding: 12px 20px;
-            border-radius: 50px;
-            font-weight: 600;
-            font-size: 1rem;
-            transition: all 0.2s ease;
-            border: none;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        .btn-action:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-        }
-
-        .btn-action:active {
-            transform: translateY(0);
-        }
-
-        .navigation-buttons {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-
-        .btn-nav {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(255, 255, 255, 0.9);
-            border: none;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            font-size: 1.2rem;
-            color: #4a5568;
-            transition: all 0.2s ease;
-        }
-
-        .btn-nav:hover {
-            background: white;
-            transform: scale(1.1);
-        }
-
-        .status-buttons {
-            display: flex;
-            justify-content: center;
-            gap: 30px;
-            margin-top: 10px;
-        }
-
-        .btn-status {
-            width: 70px;
-            height: 70px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: none;
-            font-size: 1.5rem;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-            transition: all 0.2s ease;
-        }
-
-        .btn-status:hover {
-            transform: scale(1.1);
-        }
-
-        .btn-unknown {
-            background: linear-gradient(135deg, #FF8E53 0%, #FE6B8B 100%);
-            color: white;
-        }
-
-        .btn-known {
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-            color: white;
-        }
-
-        .empty-state {
-            text-align: center;
-            color: white;
-            padding: 40px 20px;
-        }
-
-        .empty-state i {
-            font-size: 3rem;
-            margin-bottom: 20px;
-            opacity: 0.8;
-        }
-
-        /* Desktop styles */
-        @media (min-width: 768px) {
-            .header-section h1 {
-                font-size: 2.2rem;
-            }
-
-            .card-stack-container {
-                max-width: 420px;
-                height: 300px;
-            }
-
-            .card-front #word-display {
-                font-size: 2.5rem;
-            }
-
-            .action-buttons {
-                gap: 25px;
-            }
-
-            .btn-action {
-                min-width: 140px;
-                padding: 14px 25px;
-            }
-        }
-
-        /* Mobile optimizations */
-        @media (max-width: 576px) {
-            .main-content {
-                padding: 15px 10px;
-            }
-
-            .header-section h1 {
-                font-size: 1.6rem;
-            }
-
-            .card-stack-container {
-                height: 240px;
-            }
-
-            .card-front #word-display {
-                font-size: 1.8rem;
-            }
-
-            .card-front .phonetic {
-                font-size: 1rem;
-            }
-
-            .btn-action {
-                min-width: 100px;
-                padding: 10px 15px;
-                font-size: 0.9rem;
-            }
-
-            .status-buttons {
-                gap: 20px;
-            }
-
-            .btn-status {
-                width: 60px;
-                height: 60px;
-                font-size: 1.3rem;
-            }
-        }
-
-        /* Scrollbar styling */
-        .card-back::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .card-back::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 3px;
-        }
-
-        .card-back::-webkit-scrollbar-thumb {
-            background: #c5c5c5;
-            border-radius: 3px;
-        }
-
-        .card-back::-webkit-scrollbar-thumb:hover {
-            background: #a8a8a8;
-        }
-
-        .caution {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            padding: 12px 30px;
-            color: white;
-            max-width: 300px;
-            margin-left: 20px;
-            margin-top: 10px;
-            left: 0;
-            z-index: 100;
-            font-size: 0.95rem;
-            line-height: 1.4;
-        }
-
-        .caution a {
-            color: #6bc1ff;
-            text-decoration: underline;
-            font-weight: 500;
-        }
-
-        .caution a:hover {
-            color: #a0d8ff;
-        }
-
-        /* Ẩn .caution trên màn hình từ 768px trở lên (máy tính) */
-        @media (min-width: 768px) {
-            .caution {
-                display: none !important;
-            }
-        }
-
-        /* Keyboard shortcuts styling */
-        .keyboard-shortcuts {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            padding: 12px 15px;
-            max-width: 250px;
-            margin-left: 20px;
-            margin-top: 10px;
-            position: absolute;
-            left: 0;
-            z-index: 100;
-        }
-
-        .keyboard-shortcuts h4 {
-            color: white;
-            text-align: center;
-            margin-bottom: 8px;
-            font-size: 1rem;
-        }
-
-        .keyboard-shortcuts ul {
-            list-style-type: none;
-            padding: 0;
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-
-        .keyboard-shortcuts li {
-            color: white;
-            display: flex;
-            align-items: center;
-            background: rgba(0, 0, 0, 0.2);
-            padding: 4px 8px;
-            border-radius: 5px;
-            font-size: 0.85rem;
-        }
-
-        .keyboard-shortcuts kbd {
-            background-color: #f8f9fa;
-            color: #212529;
-            padding: 2px 5px;
-            border-radius: 3px;
-            margin-right: 8px;
-            font-family: monospace;
-            font-size: 0.85rem;
-            box-shadow: 0 1px 1px rgba(0, 0, 0, .2);
-        }
-
-        @media (max-width: 576px) {
-            .keyboard-shortcuts {
-                display: none;
-                /* Ẩn trên mobile */
-            }
-        }
-    </style>
+    <link href="assets/css/flashcard.css" rel="stylesheet">
 </head>
 
 <body>
@@ -814,8 +141,14 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_status' && $_SERVER['R
             </button>
         </div>
 
-        <div class="keyboard-shortcuts">
-            <h4>Phím tắt</h4>
+        <div class="keyboard-shortcuts" id="keyboard-shortcuts">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h4 class="mb-0" style="padding-right:8px;">Phím tắt </h4>
+                <button class="btn btn-sm btn-outline-light" id="toggle-shortcuts" title="Ẩn/Hiện phím tắt">
+                    <i class="bi bi-eye" id="shortcuts-icon"></i>
+                </button>
+            </div>
+            <div id="shortcuts-content">
             <ul>
                 <li><kbd>←</kbd> Thẻ trước</li>
                 <li><kbd>→</kbd> Thẻ tiếp</li>
@@ -826,6 +159,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_status' && $_SERVER['R
                 <li><i>Lưu ý: Chức năng phát âm có thể không hoạt động trên iPhone hoặc MacOS</i></li>
                 <i class="text-center"><a href="tts_fix.php" target="_blank" class="text-white">Tham khảo cách sửa tại đây</a></i>
             </ul>
+            </div>
         </div>
 
         <div class="caution text-center mt-2">
@@ -959,6 +293,16 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_status' && $_SERVER['R
                 const backEl = card.querySelector('.card-back');
                 if (backEl) {
                     backEl.style.background = getCardBackBgByGenus(vocab.genus);
+                }
+
+                // Add conjugation button event listener
+                const conjugationBtn = card.querySelector('[data-conjugation-word]');
+                if (conjugationBtn) {
+                    conjugationBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const word = conjugationBtn.getAttribute('data-conjugation-word');
+                        openConjugationModal(word);
+                    });
                 }
 
                 return card;
@@ -1111,6 +455,50 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_status' && $_SERVER['R
                 return str.replace(/(\r\n|\r|\n)/g, '<br>');
             }
 
+            function openConjugationModal(word) {
+                document.getElementById('modal-word').textContent = word;
+                
+                // Reset modal content
+                document.getElementById('db-result').innerHTML = `
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Đang tải...</span>
+                        </div>
+                        <p class="mt-2">Đang tra cứu từ database...</p>
+                    </div>
+                `;
+                
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('conjugationModal'));
+                modal.show();
+                
+                // Load database result immediately
+                loadDatabaseConjugation(word);
+            }
+
+            async function loadDatabaseConjugation(word) {
+                try {
+                    const response = await fetch('conjugation_db.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `word=${encodeURIComponent(word)}`
+                    });
+                    
+                    const result = await response.text();
+                    document.getElementById('db-result').innerHTML = result;
+                } catch (error) {
+                    document.getElementById('db-result').innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle"></i> Lỗi khi tra cứu từ database: ${error.message}
+                        </div>
+                    `;
+                }
+            }
+
+
+
             function processSwipe(status) {
                 const currentCardEl = cardStack.lastChild;
                 if (currentCardEl) {
@@ -1155,6 +543,20 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_status' && $_SERVER['R
                 document.querySelector('.stats-container').style.display = 'none';
             }
 
+            // Toggle keyboard shortcuts visibility
+            document.getElementById('toggle-shortcuts').addEventListener('click', () => {
+                const content = document.getElementById('shortcuts-content');
+                const icon = document.getElementById('shortcuts-icon');
+                
+                if (content.style.display === 'none') {
+                    content.style.display = 'block';
+                    icon.className = 'bi bi-eye';
+                } else {
+                    content.style.display = 'none';
+                    icon.className = 'bi bi-eye-slash';
+                }
+            });
+
             // Keyboard shortcuts
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'ArrowLeft') {
@@ -1174,8 +576,34 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_status' && $_SERVER['R
             });
         });
     </script>
+    <!-- Modal tra cứu động từ -->
+    <div class="modal fade" id="conjugationModal" tabindex="-1" aria-labelledby="conjugationModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="conjugationModalLabel">
+                        <i class="bi bi-translate"></i> Tra cứu động từ: <span id="modal-word"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="db-result">
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Đang tải...</span>
+                            </div>
+                            <p class="mt-2">Đang tra cứu từ database...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/assets/js/conjugation.js"></script>
 </body>
 
 </html>
