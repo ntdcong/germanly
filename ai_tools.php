@@ -24,6 +24,7 @@ $ALLOWED_MODELS = [
     'gemma2-9b-it' => 'Gemma 2 9B IT',
     'llama-3.1-8b-instant' => 'Llama 3.1 8B Instant',
     'llama-3.3-70b-versatile' => 'Llama 3.3 70B Versatile',
+    'moonshotai/kimi-k2-instruct' => 'Kimi K2'
 ];
 
 // Hạn chế spam - chỉ cho phép 1 request mỗi 3 giây
@@ -34,15 +35,13 @@ if (!isset($_SESSION['last_api_call'])) {
 $current_time = time();
 $time_since_last_call = $current_time - $_SESSION['last_api_call'];
 
-if ($time_since_last_call < 5) {
+if ($time_since_last_call < 2) {
     $wait_time = 5 - $time_since_last_call;
-    $error = "Vui lòng chờ {$wait_time} giây trước khi gửi tiếp để bảo vệ túi tiền của Duy Công.";
+    $error = "Vui lòng chờ {$wait_time} giây trước khi gửi tiếp để bảo vệ túi tiền của Duy Công 😭.";
     $activeTab = $_GET['tab'] ?? 'vocabulary';
 } else {
     $_SESSION['last_api_call'] = $current_time;
 }
-
-// (AJAX handler sẽ được đặt sau khi khởi tạo API)
 
 // Groq API Class
 class GroqAPI
@@ -100,7 +99,7 @@ class GroqAPI
         return $decoded;
     }
 
-    public function callAPI($message, $model = 'llama-3.3-70b-versatile', $temperature = 1, $maxTokens = 1024)
+    public function callAPI($message, $model = 'llama-3.3-70b-versatile', $temperature = 0.6, $maxTokens = 1024)
     {
         $data = [
             'messages' => [
