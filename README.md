@@ -1,95 +1,101 @@
-# ⚡ GERMANLY – Your German Learning Companion
+# ⚡ GERMANLY – Học tiếng Đức vui mà chất
 
 ![Flashcard Banner](http://www.deutsch.ct.ws/assets/meme.jpg)
 
-> **Elevate your German learning experience with engaging flashcards, interactive quizzes, sleek design, dynamic effects, and an intuitive interface for learners of all levels!**
+> Một app nho nhỏ để học to to. Đảo thẻ, làm quiz, chia sẻ sổ tay qua QR – và không cần đăng nhập vẫn học được nếu chủ sổ tay cho phép. Vui là chính, nhớ được từ là lợi.
 
 ---
 
-## 🚀 Introduction
-**GERMANLY** is a modern web-based platform designed to help you master German vocabulary through flashcards, quizzes, and smart learning tools. Whether you're a beginner or an advanced learner, GERMANLY optimizes your study experience with an intuitive, responsive interface and powerful features tailored to your needs.
+## 🚀 Giới thiệu
+GERMANLY là web app giúp bạn học từ vựng tiếng Đức bằng flashcard và quiz với giao diện hiện đại, mượt, gọn. Mục tiêu: Học nhanh – Nhớ lâu – Dùng sướng - Hiệu quả.
 
 ---
 
-## 🌟 Key Features
-- **Flashcard-based Learning**  
-  Flip cards, mark words as known/unknown, and enjoy smooth swipe animations for better engagement.
-
-- **Vocabulary Quizzes**  
-  Test your knowledge with multiple-choice and written questions. View performance stats and get motivational sound effects.
-
-- **Personal Vocabulary Notebook**  
-  Create, manage, and organize vocabulary sets. Add, edit, or delete entries and import word lists from Excel.
-
-- **Progress Tracking**  
-  Monitor your learning journey with detailed stats: words learned, streaks, and learning history.
-
-- **Modern Interface**  
-  Clean, responsive design that works seamlessly on both desktop and mobile. Fresh visuals and iconography for a vibrant learning experience.
-
-- **Secure User Management**  
-  Safe registration and login system with personal data protection.
-
-- **Grammar & Essentials**  
-  Access basic grammar guides, including noun declensions and foundational German knowledge.
+## 🎯 Mục tiêu dự án
+- Tối giản thao tác học và ôn tập hằng ngày
+- Học ở mọi nơi: Máy tính, laptop, điện thoại, thậm chí đồng hồ thông minh nếu truy cập internet được :v
+- Tập trung vào vốn từ thực dụng, có theo dõi tiến độ
+- Vui vẻ lành mạnh: có âm thanh khen thưởng, màu mè vừa đủ
 
 ---
 
-## 🛠️ Technologies Used
-- **PHP** (Core, no framework)
-- **MySQL** (with PDO)
-- **Bootstrap 5** & **Bootstrap Icons**
-- **JavaScript (ES6+)**
-- **HTML5, CSS3**
-- **[PhpSpreadsheet](https://phpspreadsheet.readthedocs.io/)** (for Excel import functionality)
+## 🌟 Tính năng mới nhất
+- **Chia sẻ công khai sổ tay bằng token + QR**  
+  Bật/tắt public sổ tay bằng nút chia sẻ ở sổ tay. Người có link/QR có thể học flashcard/quiz mà không cần đăng nhập (không ghi lại trạng thái cá nhân đâu nhé 😜) và đừng quên có thể tạo link cho bạn bè nhập để copy toàn bộ sổ tay thành của riêng cá nhân.
+
+- **Trang công khai lựa chọn chế độ**  
+  `public_notebook.php?token=...` với 3 nút: Flashcard, Quiz nghĩa, Quiz giống.
+
+- **Quiz nghĩa (study_quiz.php)**  
+  Xáo trộn câu hỏi 1 lần, chỉ lặp lại các câu trả lời sai. Có thống kê đúng/sai, streak, auto-progress.
+
+- **Quiz giống danh từ (study_gender.php)**  
+  Câu hỏi 3 lựa chọn der/die/das. Chỉ hiển thị nếu sổ tay có danh từ có giống.
+
+- **Flashcard siu đẹp 😜 (study_flashcard.php)**  
+  Lật thẻ, swipe trái/phải, đánh dấu Known/Unknown, nút phát âm, trộn ngẫu nhiên.  
+  Mặt sau thẻ tự đổi màu theo giống: die=đỏ, der=xanh dương, das=xanh lá, không xác định=xám.
+
+- **Tra cứu chia động từ từ Database**  
+  Nút “⚡ Tra cứu” mở modal lấy dữ liệu từ bảng `verbs` (Infinitive, Präsens, Präteritum, Partizip II, Imperativ, Hilfsverb...). Không còn dùng Netzverb – tất cả nội tại.
+
+- **Tích hợp AI 🤖 🔥**  
+  Tích hợp AI để học: `Tra từ vựng`, `Chia động từ`, `Dịch đa ngôn ngữ` và `HỎI ĐÁP 💬` (Đúng rồi đó, bạn có thể chat với AI để giải đáp thắc mắc về tiếng Đức 🔥).
 
 ---
 
-## 📦 Installation Guide
-1. **Clone the Repository:**
-   ```bash
-   git clone https://github.com/ntdcong/deutsch-flashcard.git
-   cd deutsch-flashcard
-   ```
+## 🛠️ Cài đặt nhanh (local)
+1. Clone repo:
+```bash
+git clone https://github.com/ntdcong/deutsch-flashcard.git
+cd deutsch-flashcard
+```
+2. Cài Composer:
+```bash
+composer install
+```
+3. Tạo database và import: `assets/sample.sql` (hoặc `assets/flashcard-backup.sql`) rồi chạy thêm các lệnh ở mục “Cấu hình cơ sở dữ liệu”.
+4. Sửa thông tin kết nối trong `db.php`.
+```bash
+<?php
+$host = 'localhost';
+$db   = 'flashcard';
+$user = 'root'; // Đổi lại nếu cần
+$pass = '';
+$charset = 'utf8mb4';
 
-2. **Install Composer Dependencies:**
-   ```bash
-   composer install
-   ```
+// Groq API Key
+$GROQ_API_KEY = 'TỰ_LẤY_API_GROQ_NHÉ';
 
-3. **Set Up the MySQL Database:**
-   - Import the `assets/sample.sql` or `assets/flashcard-backup.sql` file into your MySQL database.
-
-4. **Configure the Database Connection:**
-   - Update the database credentials in `db.php` to match your environment.
-
-5. **Run the Application:**
-   - Open your browser and navigate to `http://localhost/flashcard` (or your configured URL path).
-
----
-
-## 📚 Quick Start Guide
-- **Register an account** → Log in
-- **Create vocabulary notebooks** (by topic)
-- **Add vocabulary manually or import from Excel**
-- **Study using Flashcards or Quizzes**
-- **Track progress and review incorrect answers**
-
----
-
-## 🤝 Contributing & Development
-- Feel free to fork the repository, submit pull requests, or open issues if you'd like to contribute new ideas, features, or bug fixes.
-- All contributions are welcomed and greatly appreciated!
-
----
-
-## 📄 License
-- © 2025 by Duy Công. For educational and non-commercial use only.
-- Icons provided by [Bootstrap Icons](https://icons.getbootstrap.com/).
+$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+$options = [
+    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    PDO::ATTR_EMULATE_PREPARES   => false,
+];
+try {
+    $pdo = new PDO($dsn, $user, $pass, $options);
+} catch (PDOException $e) {
+    throw new PDOException($e->getMessage(), (int)$e->getCode());
+} 
+```
+5. Mở trình duyệt: `http://localhost/flashcard` (hoặc domain của bạn).
 
 ---
 
-## 📬 Contact
+## 🚦 Hướng dẫn dùng nhanh
+- Truy cập: https://deutsch.ct.ws (Bỏ qua nếu dùng local)
+- Đăng ký → đăng nhập
+- Tạo nhóm cho sổ tay (Vd: A1, A2, Hobbys, Musik,...)
+- Tạo sổ tay, thêm từ vựng hoặc nhập bằng file Excel
+- Học Flashcard (lật/lướt/đánh dấu) hoặc làm Quiz nghĩa/giống
+- Chia sẻ công khai: vào trang “Chia sẻ” của sổ tay, bật Public và gửi QR/Link cho bạn bè
+- Tra cứu động từ: bấm “⚡ Tra cứu” trong flashcard của động từ
+- AI: Truy cập trang AI Tools
+
+---
+
+## 📬 Liên hệ
 - **Email:** duycong2580@gmail.com
 
-> **Start your journey to mastering German today with GERMANLY!**
+> App làm cho cá nhân và bạn bè – học cho vui, nhớ cho đã. Nếu thấy cool, share link cho đồng bọn và cùng nhau học nhé! 😎
