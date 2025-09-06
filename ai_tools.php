@@ -150,14 +150,33 @@ class GroqAPI
 
     public function translateText($text, $fromLang = 'auto', $toLang = 'vi', $model = 'llama-3.1-8b-instant')
     {
-        $prompt = "Bạn là một công cụ dịch chuyên nghiệp. 
-        Văn bản nguồn: {$text}
-        Ngôn ngữ nguồn: {$fromLang}
-        Ngôn ngữ đích: {$toLang}
-        
-        ❌ Không được giữ nguyên ngôn ngữ gốc. 
-        ✅ Chỉ trả về bản dịch sang ngôn ngữ đích chính xác, tự nhiên, không giải thích.";
-        
+        $langNames = [
+            'vi' => 'Tiếng Việt',
+            'en' => 'Tiếng Anh',
+            'de' => 'Tiếng Đức',
+            'fr' => 'Tiếng Pháp',
+            'es' => 'Tiếng Tây Ban Nha',
+            'it' => 'Tiếng Ý',
+            'pt' => 'Tiếng Bồ Đào Nha',
+            'ru' => 'Tiếng Nga',
+            'ja' => 'Tiếng Nhật',
+            'ko' => 'Tiếng Hàn',
+            'zh' => 'Tiếng Trung (Giản thể)',
+            'zh-TW' => 'Tiếng Trung (Phồn thể)',
+            'ar' => 'Tiếng Ả Rập',
+            'th' => 'Tiếng Thái',
+            'id' => 'Tiếng Indonesia'
+        ];
+
+        $fromLangName = $langNames[$fromLang] ?? $fromLang;
+        $toLangName = $langNames[$toLang] ?? $toLang;
+
+        $prompt = "Dịch văn bản sau từ {$fromLangName} sang {$toLangName}:
+
+\"{$text}\"
+
+Chỉ trả về bản dịch, không giải thích hay thêm văn bản nào khác.";
+
         return $this->callAPI($prompt, $model);
     }
 
@@ -266,7 +285,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             $messages = [
                 ['role' => 'system', 'content' => 'Bạn là giáo viên tiếng Đức chuyên nghiệp, trả lời ngắn gọn, rõ ràng, có ví dụ khi cần. Ngôn ngữ trả lời: tiếng Việt (có chèn ví dụ tiếng Đức).'],
             ];
-            foreach ($_SESSION['ai_chat'] as $m) {
+
+            // Limit chat history to last 2 messages to save tokens
+            $recentMessages = array_slice($_SESSION['ai_chat'], -2);
+            foreach ($recentMessages as $m) {
                 $messages[] = ['role' => $m['role'], 'content' => $m['content']];
             }
             $response = $groq->callChat($messages, $model);
@@ -618,7 +640,7 @@ function parseMarkdown($text)
                 <i class="bi bi-lightning"></i> Chia động từ
             </a>
             <a href="?tab=translate" class="tab <?= $activeTab === 'translate' ? 'active' : '' ?>">
-                <i class="bi bi-chat-dots"></i> Chat dịch
+                <i class="bi bi-translate"></i> Dịch
             </a>
             <a href="?tab=chat" class="tab <?= $activeTab === 'chat' ? 'active' : '' ?>">
                 <i class="bi bi-mortarboard"></i> Hỏi đáp
@@ -701,20 +723,20 @@ function parseMarkdown($text)
             </div>
         </div>
 
-        <!-- Chat dịch -->
+        <!-- Dịch -->
         <div class="tab-content <?= $activeTab === 'translate' ? 'active' : '' ?>">
             <div class="card">
-                <h3><i class="bi bi-chat-dots"></i> Dịch</h3>
-                <p class="text-muted">Dịch giữa các ngôn ngữ</p>
-                
+                <h3><i class="bi bi-translate"></i> Dịch</h3>
+                <p class="text-muted">Dịch văn bản giữa các ngôn ngữ với các tính năng tương tự Google Translate</p>
+
                 <form method="POST" id="translateForm">
                     <input type="hidden" name="action" value="translate">
                     <input type="hidden" name="ajax" value="1">
-                    
+
                     <div class="language-selector">
                         <div class="form-group" style="flex: 1;">
                             <label class="form-label">Ngôn ngữ nguồn</label>
-                            <select name="from_lang" class="form-select">
+                            <select name="from_lang" id="fromLang" class="form-select">
                                 <option value="auto" <?= ($_POST['from_lang'] ?? 'auto') === 'auto' ? 'selected' : '' ?>>Tự động phát hiện</option>
                                 <option value="vi" <?= ($_POST['from_lang'] ?? '') === 'vi' ? 'selected' : '' ?>>Tiếng Việt</option>
                                 <option value="de" <?= ($_POST['from_lang'] ?? '') === 'de' ? 'selected' : '' ?>>Tiếng Đức</option>
@@ -733,14 +755,14 @@ function parseMarkdown($text)
                                 <option value="id" <?= ($_POST['from_lang'] ?? '') === 'id' ? 'selected' : '' ?>>Tiếng Indonesia</option>
                             </select>
                         </div>
-                        
-                        <button type="button" class="swap-btn" onclick="swapLanguages()">
+
+                        <button type="button" class="swap-btn" onclick="swapLanguages()" title="Đổi ngôn ngữ">
                             <i class="bi bi-arrow-left-right"></i>
                         </button>
-                        
+
                         <div class="form-group" style="flex: 1;">
                             <label class="form-label">Ngôn ngữ đích</label>
-                            <select name="to_lang" class="form-select">
+                            <select name="to_lang" id="toLang" class="form-select">
                                 <option value="vi" <?= ($_POST['to_lang'] ?? 'vi') === 'vi' ? 'selected' : '' ?>>Tiếng Việt</option>
                                 <option value="de" <?= ($_POST['to_lang'] ?? '') === 'de' ? 'selected' : '' ?>>Tiếng Đức</option>
                                 <option value="en" <?= ($_POST['to_lang'] ?? '') === 'en' ? 'selected' : '' ?>>Tiếng Anh</option>
@@ -759,24 +781,53 @@ function parseMarkdown($text)
                             </select>
                         </div>
                     </div>
-                    
-                    <div class="translate-grid">
-                        <div class="translate-input">
-                            <label class="form-label">Nhập đoạn cần dịch</label>
-                            <textarea name="text" class="form-control" rows="8" placeholder="Nhập đoạn cần dịch..." required><?= htmlspecialchars($_POST['text'] ?? '') ?></textarea>
+
+                    <div class="translate-container">
+                        <div class="translate-box">
+                            <div class="translate-header">
+                                <span class="detected-lang" id="detectedLang"></span>
+                                <div class="translate-actions">
+                                    <button type="button" class="action-btn" onclick="copyToClipboard('source')" title="Sao chép">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <textarea name="text" id="sourceText" class="translate-textarea" placeholder="Nhập văn bản cần dịch..." onkeydown="handleKeyDown(event)"><?= htmlspecialchars($_POST['text'] ?? '') ?></textarea>
+                            <div class="translate-footer">
+                                <span class="char-count" id="sourceCharCount">0</span>
+                            </div>
                         </div>
-                        <div class="translate-output">
-                            <label class="form-label">Kết quả</label>
-                            <div class="translate-result"><?php if (isset($translateOutput)) { echo parseMarkdown(htmlspecialchars($translateOutput)); } ?></div>
+
+                        <div class="translate-box">
+                            <div class="translate-header">
+                                <span class="target-lang-label" id="targetLangLabel">Tiếng Việt</span>
+                                <div class="translate-actions">
+                                    <button type="button" class="action-btn" onclick="copyToClipboard('target')" title="Sao chép">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="translate-result" id="translateResult">
+                                <?php if (isset($translateOutput)) { echo parseMarkdown(htmlspecialchars($translateOutput)); } ?>
+                            </div>
+                            <div class="translate-footer">
+                                <span class="char-count" id="targetCharCount">0</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="mt-3 d-flex gap-2">
-                        <button type="submit" class="btn">
+
+                    <div class="translate-controls">
+                        <button type="button" class="btn" id="translateBtn" onclick="performTranslate()" title="Dịch văn bản">
                             <i class="bi bi-translate"></i> Dịch
                         </button>
-                        <button type="button" class="btn btn-secondary" onclick="clearTranslate()">
+                        <button type="button" class="btn btn-secondary" onclick="clearTranslate()" title="Xóa tất cả">
                             <i class="bi bi-x-circle"></i> Xóa
                         </button>
+                        <div class="keyboard-shortcuts">
+                            <small class="text-muted">
+                                <i class="bi bi-keyboard"></i> Nhấn Ctrl+Enter để dịch nhanh
+                            </small>
+                        </div>
                     </div>
                 </form>
 
@@ -797,42 +848,77 @@ function parseMarkdown($text)
 
         <!-- Chat hỏi đáp -->
         <div class="tab-content <?= $activeTab === 'chat' ? 'active' : '' ?>">
-            <div class="card chat-card">
-                <h3><i class="bi bi-mortarboard"></i> Chat với AI</h3>
-                <p class="text-muted">Hỏi đáp về tiếng Đức với AI giáo viên</p>
+            <div class="chat-container">
+                <div class="chat-header">
+                    <div class="chat-title">
+                        <i class="bi bi-robot"></i>
+                        <span>AI Giáo viên tiếng Đức</span>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearChat()" title="Xóa cuộc trò chuyện">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
 
-                <div class="chat-window" id="chatWindow">
+                <div class="chat-messages" id="chatWindow">
                     <?php if (!empty($_SESSION['ai_chat'])): ?>
                         <?php foreach ($_SESSION['ai_chat'] as $m): ?>
-                            <div class="chat-row <?= $m['role'] === 'user' ? 'user' : 'assistant' ?>">
-                                <div class="chat-bubble">
-                                    <?= parseMarkdown(htmlspecialchars($m['content'])) ?>
+                            <div class="message-wrapper <?= $m['role'] === 'user' ? 'user-message' : 'assistant-message' ?>">
+                                <div class="message-avatar">
+                                    <?php if ($m['role'] === 'user'): ?>
+                                        <div class="user-avatar">
+                                            <i class="bi bi-person"></i>
+                                        </div>
+                                    <?php else: ?>
+                                        <div class="assistant-avatar">
+                                            <i class="bi bi-robot"></i>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="message-content">
+                                    <div class="message-bubble">
+                                        <?= parseMarkdown(htmlspecialchars($m['content'])) ?>
+                                    </div>
                                 </div>
                             </div>
                         <?php endforeach; ?>
                     <?php else: ?>
-                        <div class="chat-empty">Hãy bắt đầu bằng cách đặt câu hỏi ở bên dưới.</div>
+                        <div class="chat-empty">
+                            <div class="empty-icon">
+                                <i class="bi bi-chat-dots"></i>
+                            </div>
+                            <div class="empty-text">
+                                <h4>Chào mừng bạn đến với AI Giáo viên!</h4>
+                                <p>Hãy đặt câu hỏi về tiếng Đức để bắt đầu cuộc trò chuyện.</p>
+                            </div>
+                        </div>
                     <?php endif; ?>
                 </div>
 
-                <form method="POST" class="chat-input-row" id="chatForm">
-                    <input type="hidden" name="action" value="chat">
-                    <input type="hidden" name="ajax" value="1">
-                    <textarea name="question" class="form-control chat-input" rows="2" placeholder="Nhập câu hỏi..." required></textarea>
-                    <button type="submit" class="btn chat-send">
-                        <i class="bi bi-send"></i>
-                    </button>
-                    <button type="button" class="btn btn-secondary chat-clear" onclick="clearChat()"><i class="bi bi-trash"></i></button>
-                </form>
+                <div class="chat-input-container">
+                    <form method="POST" class="chat-form" id="chatForm">
+                        <input type="hidden" name="action" value="chat">
+                        <input type="hidden" name="ajax" value="1">
+                        <div class="chat-input-wrapper">
+                            <textarea name="question" class="chat-input" placeholder="Nhập câu hỏi của bạn..." required></textarea>
+                            <button type="submit" class="chat-send-btn" title="Gửi">
+                                <i class="bi bi-send"></i>
+                            </button>
+                        </div>
+                    </form>
 
-                <div class="examples mt-2">
-                    <span class="example-tag" onclick="fillInput('question', 'Sự khác biệt giữa der, die, das là gì?')">Sự khác biệt giữa der, die, das là gì?</span>
-                    <span class="example-tag" onclick="fillInput('question', 'Cách chia động từ sein trong quá khứ?')">Cách chia động từ sein trong quá khứ?</span>
-                    <span class="example-tag" onclick="fillInput('question', 'Tại sao tiếng Đức có 4 cách?')">Tại sao tiếng Đức có 4 cách?</span>
-                    <span class="example-tag" onclick="fillInput('question', 'Cách phát âm chữ ü trong tiếng Đức?')">Cách phát âm chữ ü trong tiếng Đức?</span>
+                    <div class="chat-examples">
+                        <div class="examples-title">Câu hỏi mẫu:</div>
+                        <div class="examples-grid">
+                            <span class="example-tag" onclick="fillInput('question', 'Sự khác biệt giữa der, die, das là gì?')">Sự khác biệt giữa der, die, das là gì?</span>
+                            <span class="example-tag" onclick="fillInput('question', 'Cách chia động từ sein trong quá khứ?')">Cách chia động từ sein trong quá khứ?</span>
+                            <span class="example-tag" onclick="fillInput('question', 'Tại sao tiếng Đức có 4 cách?')">Tại sao tiếng Đức có 4 cách?</span>
+                            <span class="example-tag" onclick="fillInput('question', 'Cách phát âm chữ ü trong tiếng Đức?')">Cách phát âm chữ ü trong tiếng Đức?</span>
+                        </div>
+                    </div>
                 </div>
+
                 <?php if ($error && $activeTab === 'chat'): ?>
-                    <div class="error mt-2">
+                    <div class="error">
                         <i class="bi bi-exclamation-triangle"></i> <?= htmlspecialchars($error) ?>
                     </div>
                 <?php endif; ?>
@@ -842,19 +928,175 @@ function parseMarkdown($text)
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        let autoTranslateTimeout;
+
         function fillInput(fieldName, value) {
             const input = document.querySelector(`input[name="${fieldName}"], textarea[name="${fieldName}"]`);
             if (input) {
                 input.value = value;
+                if (fieldName === 'text') {
+                    updateCharCount('source');
+                    autoTranslate();
+                }
             }
         }
 
         function swapLanguages() {
-            const fromSelect = document.querySelector('select[name="from_lang"]');
-            const toSelect = document.querySelector('select[name="to_lang"]');
-            const temp = fromSelect.value;
+            const fromSelect = document.getElementById('fromLang');
+            const toSelect = document.getElementById('toLang');
+            const tempValue = fromSelect.value;
+            const tempText = fromSelect.options[fromSelect.selectedIndex].text;
+
             fromSelect.value = toSelect.value;
-            toSelect.value = temp;
+            toSelect.value = tempValue;
+
+            updateTargetLangLabel();
+            autoTranslate();
+        }
+
+        function updateCharCount(type) {
+            const sourceText = document.getElementById('sourceText');
+            const targetResult = document.getElementById('translateResult');
+            const sourceCount = document.getElementById('sourceCharCount');
+            const targetCount = document.getElementById('targetCharCount');
+
+            if (type === 'source' || type === 'both') {
+                const sourceLength = sourceText.value.length;
+                sourceCount.textContent = sourceLength;
+                sourceCount.className = sourceLength > 5000 ? 'char-count warning' : 'char-count';
+            }
+
+            if (type === 'target' || type === 'both') {
+                const targetText = targetResult.textContent || '';
+                const targetLength = targetText.length;
+                targetCount.textContent = targetLength;
+            }
+        }
+
+        function updateTargetLangLabel() {
+            const toSelect = document.getElementById('toLang');
+            const label = document.getElementById('targetLangLabel');
+            const selectedOption = toSelect.options[toSelect.selectedIndex];
+            label.textContent = selectedOption ? selectedOption.text : 'Tiếng Việt';
+        }
+
+        function copyToClipboard(type) {
+            let text = '';
+            if (type === 'source') {
+                text = document.getElementById('sourceText').value;
+            } else if (type === 'target') {
+                text = document.getElementById('translateResult').textContent || '';
+            }
+
+            if (text.trim()) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showNotification('Đã sao chép vào clipboard!');
+                }).catch(() => {
+                    // Fallback for older browsers
+                    const textArea = document.createElement('textarea');
+                    textArea.value = text;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    showNotification('Đã sao chép vào clipboard!');
+                });
+            }
+        }
+
+
+
+
+
+        function showNotification(message) {
+            // Simple notification
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.textContent = message;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: var(--success);
+                color: white;
+                padding: 10px 20px;
+                border-radius: 8px;
+                z-index: 1000;
+                font-size: 14px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            `;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        function handleKeyDown(event) {
+            if (event.ctrlKey && event.key === 'Enter') {
+                event.preventDefault();
+                performTranslate();
+            }
+        }
+
+        function autoTranslate() {
+            clearTimeout(autoTranslateTimeout);
+            const sourceText = document.getElementById('sourceText');
+
+            if (sourceText.value.trim().length > 0) {
+                autoTranslateTimeout = setTimeout(() => {
+                    performTranslate();
+                }, 1000); // Delay 1 second after user stops typing
+            } else {
+                document.getElementById('translateResult').innerHTML = '';
+                updateCharCount('both');
+            }
+        }
+
+        function performTranslate() {
+            const sourceText = document.getElementById('sourceText');
+            const text = sourceText.value.trim();
+
+            if (!text) return;
+
+            const fromLang = document.getElementById('fromLang').value;
+            const toLang = document.getElementById('toLang').value;
+
+            // Show loading state
+            const resultDiv = document.getElementById('translateResult');
+            resultDiv.innerHTML = '<div class="loading">Đang dịch...</div>';
+
+            fetch('', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    action: 'translate',
+                    text: text,
+                    from_lang: fromLang,
+                    to_lang: toLang,
+                    ajax: '1'
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    resultDiv.innerHTML = data.output_html;
+                    updateCharCount('target');
+
+                    // Update detected language if auto-detect was used
+                    if (fromLang === 'auto') {
+                        const detectedLang = document.getElementById('detectedLang');
+                        // For now, just show that language was detected
+                        detectedLang.textContent = 'Ngôn ngữ được phát hiện';
+                    }
+                } else {
+                    resultDiv.innerHTML = '<div class="error">Lỗi: ' + (data.error || 'Có lỗi xảy ra') + '</div>';
+                }
+            })
+            .catch(error => {
+                resultDiv.innerHTML = '<div class="error">Lỗi kết nối</div>';
+                console.error('Translation error:', error);
+            });
         }
 
         // Auto-focus on active tab
@@ -864,6 +1106,10 @@ function parseMarkdown($text)
             if (activeInput) {
                 activeInput.focus();
             }
+
+            // Initialize character count
+            updateCharCount('both');
+            updateTargetLangLabel();
 
             // Auto scroll chat xuống cuối
             const chatWindow = document.getElementById('chatWindow');
@@ -882,13 +1128,35 @@ function parseMarkdown($text)
                     });
                 });
             }
+
+            // Language selector change events
+            const fromLang = document.getElementById('fromLang');
+            const toLang = document.getElementById('toLang');
+
+            if (fromLang) {
+                fromLang.addEventListener('change', function() {
+                    const detectedLang = document.getElementById('detectedLang');
+                    detectedLang.textContent = this.value === 'auto' ? '' : '';
+                });
+            }
+
+            if (toLang) {
+                toLang.addEventListener('change', function() {
+                    updateTargetLangLabel();
+                });
+            }
         });
 
         function clearTranslate() {
-            const textarea = document.querySelector('textarea[name="text"]');
-            const result = document.querySelector('.translate-result');
+            const textarea = document.getElementById('sourceText');
+            const result = document.getElementById('translateResult');
+            const detectedLang = document.getElementById('detectedLang');
+
             if (textarea) textarea.value = '';
             if (result) result.innerHTML = '';
+            if (detectedLang) detectedLang.textContent = '';
+
+            updateCharCount('both');
         }
 
         function clearChat() {
@@ -899,28 +1167,8 @@ function parseMarkdown($text)
             }).then(r => r.json()).then(data => {
                 if (data.ok) {
                     const chatWindow = document.getElementById('chatWindow');
-                    if (chatWindow) chatWindow.innerHTML = '<div class="chat-empty">Hãy bắt đầu bằng cách đặt câu hỏi ở bên dưới.</div>';
+                    if (chatWindow) chatWindow.innerHTML = '<div class="chat-empty"><div class="empty-icon"><i class="bi bi-chat-dots"></i></div><div class="empty-text"><h4>Chào mừng bạn đến với AI Giáo viên!</h4><p>Hãy đặt câu hỏi về tiếng Đức để bắt đầu cuộc trò chuyện.</p></div></div>';
                 }
-            });
-        }
-
-        // AJAX submit Translate
-        const translateForm = document.getElementById('translateForm');
-        if (translateForm) {
-            translateForm.addEventListener('submit', function (e) {
-                e.preventDefault();
-                const formData = new FormData(translateForm);
-                formData.set('ajax', '1');
-                fetch('', { method: 'POST', body: new URLSearchParams(formData) })
-                    .then(r => r.json())
-                    .then(data => {
-                        if (!data.ok) {
-                            alert(data.error || 'Có lỗi xảy ra');
-                            return;
-                        }
-                        const out = document.querySelector('.translate-result');
-                        if (out) out.innerHTML = data.output_html;
-                    });
             });
         }
 
@@ -933,14 +1181,28 @@ function parseMarkdown($text)
                 const text = (textarea?.value || '').trim();
                 if (!text) return;
 
-                // append user bubble ngay lập tức
+                // Remove empty state if it exists
+                const emptyState = document.querySelector('.chat-empty');
+                if (emptyState) {
+                    emptyState.remove();
+                }
+
+                // append user message immediately
                 const chatWindow = document.getElementById('chatWindow');
                 if (chatWindow) {
-                    const row = document.createElement('div');
-                    row.className = 'chat-row user';
-                    row.innerHTML = '<div class="chat-bubble"></div>';
-                    row.querySelector('.chat-bubble').textContent = text;
-                    chatWindow.appendChild(row);
+                    const userMessage = document.createElement('div');
+                    userMessage.className = 'message-wrapper user-message';
+                    userMessage.innerHTML = `
+                        <div class="message-avatar">
+                            <div class="user-avatar">
+                                <i class="bi bi-person"></i>
+                            </div>
+                        </div>
+                        <div class="message-content">
+                            <div class="message-bubble">${text}</div>
+                        </div>
+                    `;
+                    chatWindow.appendChild(userMessage);
                     chatWindow.scrollTop = chatWindow.scrollHeight;
                 }
 
@@ -955,11 +1217,19 @@ function parseMarkdown($text)
                         }
                         const chatWindow2 = document.getElementById('chatWindow');
                         if (chatWindow2) {
-                            const row = document.createElement('div');
-                            row.className = 'chat-row assistant';
-                            row.innerHTML = '<div class="chat-bubble"></div>';
-                            row.querySelector('.chat-bubble').innerHTML = data.assistant_html;
-                            chatWindow2.appendChild(row);
+                            const assistantMessage = document.createElement('div');
+                            assistantMessage.className = 'message-wrapper assistant-message';
+                            assistantMessage.innerHTML = `
+                                <div class="message-avatar">
+                                    <div class="assistant-avatar">
+                                        <i class="bi bi-robot"></i>
+                                    </div>
+                                </div>
+                                <div class="message-content">
+                                    <div class="message-bubble">${data.assistant_html}</div>
+                                </div>
+                            `;
+                            chatWindow2.appendChild(assistantMessage);
                             chatWindow2.scrollTop = chatWindow2.scrollHeight;
                         }
                     });

@@ -12,9 +12,93 @@ $user_id = $_SESSION['user_id'];
 $message = '';
 $error = '';
 
+// Hàm ghi log hệ thống
+function writeSystemLog($message, $type = 'info') {
+    $logDir = 'assets/logs/';
+    if (!is_dir($logDir)) {
+        mkdir($logDir, 0755, true);
+    }
+
+    $logFile = $logDir . 'system_' . date('Y-m-d') . '.log';
+    $timestamp = date('Y-m-d H:i:s');
+    $logEntry = "[$timestamp] [$type] $message" . PHP_EOL;
+
+    file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX);
+}
+
 // Xử lý các hành động quản lý người dùng
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $action = $_POST['action'];
+
+    // Xử lý sao lưu dữ liệu
+    if ($action === 'create_backup') {
+        try {
+            $backupDir = 'assets/backups/';
+            if (!is_dir($backupDir)) {
+                mkdir($backupDir, 0755, true);
+            }
+
+            $timestamp = date('Y-m-d_H-i-s');
+            $backupFile = $backupDir . 'backup_' . $timestamp . '.sql';
+
+            // Lấy danh sách tables
+            $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
+
+            $sql = "-- Germanly Database Backup\n";
+            $sql .= "-- Created: " . date('Y-m-d H:i:s') . "\n\n";
+
+            foreach ($tables as $table) {
+                // Lấy cấu trúc bảng
+                $createTable = $pdo->query("SHOW CREATE TABLE `$table`")->fetch(PDO::FETCH_ASSOC);
+                $sql .= $createTable['Create Table'] . ";\n\n";
+
+                // Lấy dữ liệu bảng
+                $rows = $pdo->query("SELECT * FROM `$table`")->fetchAll(PDO::FETCH_ASSOC);
+                if (!empty($rows)) {
+                    foreach ($rows as $row) {
+                        $values = array_map(function($value) use ($pdo) {
+                            return $value === null ? 'NULL' : $pdo->quote($value);
+                        }, $row);
+                        $sql .= "INSERT INTO `$table` VALUES (" . implode(', ', $values) . ");\n";
+                    }
+                    $sql .= "\n";
+                }
+            }
+
+            file_put_contents($backupFile, $sql);
+            $message = 'Sao lưu dữ liệu thành công! File: ' . basename($backupFile);
+
+            // Ghi log
+            writeSystemLog('Backup created: ' . basename($backupFile), 'info');
+
+        } catch (Exception $e) {
+            $error = 'Lỗi khi tạo sao lưu: ' . $e->getMessage();
+            writeSystemLog('Backup failed: ' . $e->getMessage(), 'error');
+        }
+    }
+
+    // Xử lý thông báo hệ thống
+    if ($action === 'send_announcement') {
+        $title = trim($_POST['announcement_title'] ?? '');
+        $content = trim($_POST['announcement_content'] ?? '');
+
+        if ($title && $content) {
+            try {
+                // Lưu thông báo vào database (giả sử có bảng announcements)
+                $stmt = $pdo->prepare('INSERT INTO announcements (title, content, created_by, created_at) VALUES (?, ?, ?, NOW())');
+                $stmt->execute([$title, $content, $user_id]);
+
+                $message = 'Thông báo đã được gửi thành công!';
+                writeSystemLog('Announcement sent: ' . $title, 'info');
+
+            } catch (Exception $e) {
+                $error = 'Lỗi khi gửi thông báo: ' . $e->getMessage();
+                writeSystemLog('Announcement failed: ' . $e->getMessage(), 'error');
+            }
+        } else {
+            $error = 'Vui lòng nhập đầy đủ tiêu đề và nội dung!';
+        }
+    }
 
     // Thay đổi quyền người dùng
     if ($action === 'change_role') {
@@ -69,6 +153,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 error_log("Lỗi khi xóa người dùng ID $target_user_id: " . $e->getMessage());
                 $error = 'Đã xảy ra lỗi khi xóa người dùng.';
             }
+        }
+    }
+
+    // Xóa sổ tay
+    if ($action === 'delete_notebook') {
+        $notebook_id = filter_input(INPUT_POST, 'notebook_id', FILTER_VALIDATE_INT);
+
+        if ($notebook_id === false || $notebook_id === null) {
+            $error = 'ID sổ tay không hợp lệ!';
+        } else {
+            try {
+                $pdo->beginTransaction();
+
+                // Xóa dữ liệu liên quan theo thứ tự phụ thuộc khóa ngoại
+                $pdo->prepare('DELETE FROM learning_status WHERE notebook_id = ?')->execute([$notebook_id]);
+                $pdo->prepare('DELETE FROM vocabularies WHERE notebook_id = ?')->execute([$notebook_id]);
+                $pdo->prepare('DELETE FROM notebooks WHERE id = ?')->execute([$notebook_id]);
+
+                $pdo->commit();
+                $message = 'Đã xóa sổ tay và dữ liệu liên quan!';
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                error_log("Lỗi khi xóa sổ tay ID $notebook_id: " . $e->getMessage());
+                $error = 'Đã xảy ra lỗi khi xóa sổ tay.';
+            }
+        }
+    }
+
+    // Chỉnh sửa sổ tay
+    if ($action === 'edit_notebook') {
+        $notebook_id = filter_input(INPUT_POST, 'notebook_id', FILTER_VALIDATE_INT);
+        $title = trim($_POST['title'] ?? '');
+        $description = trim($_POST['description'] ?? '');
+
+        if ($notebook_id && $title) {
+            $stmt = $pdo->prepare('UPDATE notebooks SET title = ?, description = ? WHERE id = ?');
+            if ($stmt->execute([$title, $description, $notebook_id])) {
+                $message = 'Đã cập nhật sổ tay!';
+            } else {
+                $error = 'Cập nhật sổ tay thất bại.';
+            }
+        } else {
+            $error = 'Dữ liệu không hợp lệ!';
         }
     }
 }
@@ -126,599 +253,7 @@ $all_notebooks = $allNotebooksStmt->fetchAll(PDO::FETCH_ASSOC);
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --primary-color: #6366f1;
-            --primary-light: #f0f1ff;
-            --primary-dark: #4f46e5;
-            --success-color: #10b981;
-            --warning-color: #f59e0b;
-            --danger-color: #ef4444;
-            --info-color: #3b82f6;
-            --gray-50: #f9fafb;
-            --gray-100: #f3f4f6;
-            --gray-200: #e5e7eb;
-            --gray-300: #d1d5db;
-            --gray-400: #9ca3af;
-            --gray-500: #6b7280;
-            --gray-600: #4b5563;
-            --gray-700: #374151;
-            --gray-800: #1f2937;
-            --gray-900: #111827;
-            --sidebar-width: 280px;
-            --sidebar-width-collapsed: 80px;
-            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-            --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-        }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background-color: var(--gray-50);
-            color: var(--gray-900);
-            line-height: 1.6;
-        }
-
-        /* Sidebar Styles */
-        .admin-sidebar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: var(--sidebar-width);
-            height: 100vh;
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
-            color: white;
-            z-index: 1000;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: var(--shadow-xl);
-            overflow-y: auto;
-        }
-
-        .admin-sidebar.collapsed {
-            width: var(--sidebar-width-collapsed);
-        }
-
-        .sidebar-brand {
-            display: flex;
-            align-items: center;
-            padding: 1.5rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            margin-bottom: 1rem;
-        }
-
-        .sidebar-brand-icon {
-            font-size: 2rem;
-            margin-right: 0.75rem;
-            color: #fbbf24;
-        }
-
-        .sidebar-brand-text {
-            font-size: 1.375rem;
-            font-weight: 700;
-            letter-spacing: -0.025em;
-        }
-
-        .sidebar-nav {
-            padding: 0 1rem;
-        }
-
-        .nav-item {
-            margin-bottom: 0.5rem;
-        }
-
-        .nav-link {
-            display: flex;
-            align-items: center;
-            padding: 0.875rem 1rem;
-            color: rgba(255, 255, 255, 0.8);
-            text-decoration: none;
-            border-radius: 0.75rem;
-            font-weight: 500;
-            transition: all 0.2s ease-in-out;
-            position: relative;
-        }
-
-        .nav-link:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            transform: translateX(4px);
-        }
-
-        .nav-link.active {
-            background: rgba(255, 255, 255, 0.15);
-            color: white;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .nav-link i {
-            font-size: 1.25rem;
-            margin-right: 0.875rem;
-            min-width: 1.25rem;
-        }
-
-        .sidebar-divider {
-            height: 1px;
-            background: rgba(255, 255, 255, 0.1);
-            margin: 1.5rem 1rem;
-        }
-
-        /* Main Content */
-        .admin-content {
-            margin-left: var(--sidebar-width);
-            padding: 2rem;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            min-height: 100vh;
-        }
-
-        .admin-content.expanded {
-            margin-left: var(--sidebar-width-collapsed);
-        }
-
-        /* Header */
-        .admin-header {
-            background: white;
-            border-radius: 1rem;
-            padding: 1.5rem 2rem;
-            margin-bottom: 2rem;
-            box-shadow: var(--shadow-sm);
-            border: 1px solid var(--gray-200);
-        }
-
-        .header-title {
-            font-size: 1.875rem;
-            font-weight: 700;
-            color: var(--gray-900);
-            margin: 0;
-        }
-
-        .header-meta {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .header-date {
-            color: var(--gray-600);
-            font-weight: 500;
-        }
-
-        .admin-badge {
-            background: var(--primary-light);
-            color: var(--primary-color);
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            font-weight: 600;
-            font-size: 0.875rem;
-        }
-
-        /* Stats Cards */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .stat-card {
-            background: white;
-            border-radius: 1rem;
-            padding: 2rem;
-            box-shadow: var(--shadow-sm);
-            border: 1px solid var(--gray-200);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .stat-card:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: var(--primary-color);
-        }
-
-        .stat-content {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .stat-info h3 {
-            font-size: 2.25rem;
-            font-weight: 700;
-            color: var(--gray-900);
-            margin-bottom: 0.5rem;
-            line-height: 1;
-        }
-
-        .stat-info p {
-            color: var(--gray-600);
-            font-weight: 500;
-            margin: 0;
-        }
-
-        .stat-icon {
-            width: 4rem;
-            height: 4rem;
-            background: var(--primary-light);
-            border-radius: 1rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2rem;
-            color: var(--primary-color);
-        }
-
-        /* Cards */
-        .content-card {
-            background: white;
-            border-radius: 1rem;
-            box-shadow: var(--shadow-sm);
-            border: 1px solid var(--gray-200);
-            overflow: hidden;
-        }
-
-        .card-header {
-            padding: 1.5rem 2rem;
-            border-bottom: 1px solid var(--gray-200);
-            background: var(--gray-50);
-        }
-
-        .card-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--gray-900);
-            margin: 0;
-        }
-
-        .card-body {
-            padding: 2rem;
-        }
-
-        /* Tables */
-        .table-wrapper {
-            overflow-x: auto;
-            border-radius: 0.75rem;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .custom-table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-        }
-
-        .custom-table th {
-            background: var(--gray-50);
-            padding: 1rem 1.5rem;
-            text-align: left;
-            font-weight: 600;
-            color: var(--gray-700);
-            border-bottom: 1px solid var(--gray-200);
-            font-size: 0.875rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .custom-table td {
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid var(--gray-200);
-            color: var(--gray-900);
-        }
-
-        .custom-table tbody tr:hover {
-            background: var(--gray-50);
-        }
-
-        /* Badges */
-        .role-badge {
-            padding: 0.375rem 0.75rem;
-            border-radius: 0.5rem;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .role-admin {
-            background: #fef2f2;
-            color: #dc2626;
-        }
-
-        .role-user {
-            background: #f0fdf4;
-            color: #16a34a;
-        }
-
-        .vocab-count-badge {
-            background: var(--info-color);
-            color: white;
-            padding: 0.25rem 0.625rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-
-        /* Buttons */
-        .btn-group {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .action-btn {
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            font-size: 0.875rem;
-            font-weight: 500;
-            border: 1px solid;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.375rem;
-            transition: all 0.2s ease;
-        }
-
-        .btn-primary-outline {
-            color: var(--primary-color);
-            border-color: var(--primary-color);
-            background: transparent;
-        }
-
-        .btn-primary-outline:hover {
-            background: var(--primary-color);
-            color: white;
-        }
-
-        .btn-danger-outline {
-            color: var(--danger-color);
-            border-color: var(--danger-color);
-            background: transparent;
-        }
-
-        .btn-danger-outline:hover {
-            background: var(--danger-color);
-            color: white;
-        }
-
-        .btn-primary-solid {
-            background: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
-        }
-
-        .btn-primary-solid:hover {
-            background: var(--primary-dark);
-            border-color: var(--primary-dark);
-        }
-
-        .btn-secondary-solid {
-            background: var(--gray-600);
-            color: white;
-            border-color: var(--gray-600);
-        }
-
-        .btn-danger-solid {
-            background: var(--danger-color);
-            color: white;
-            border-color: var(--danger-color);
-        }
-
-        /* Alerts */
-        .alert {
-            padding: 1rem 1.5rem;
-            border-radius: 0.75rem;
-            margin-bottom: 1.5rem;
-            border: 1px solid;
-            display: flex;
-            align-items: flex-start;
-            gap: 0.75rem;
-        }
-
-        .alert-success {
-            background: #f0fdf4;
-            border-color: #bbf7d0;
-            color: #166534;
-        }
-
-        .alert-danger {
-            background: #fef2f2;
-            border-color: #fecaca;
-            color: #dc2626;
-        }
-
-        .alert-dismissible .btn-close {
-            margin-left: auto;
-            background: none;
-            border: none;
-            font-size: 1.25rem;
-            opacity: 0.6;
-            cursor: pointer;
-        }
-
-        /* Form Controls */
-        .form-control, .form-select {
-            padding: 0.75rem 1rem;
-            border: 1px solid var(--gray-300);
-            border-radius: 0.5rem;
-            font-size: 0.875rem;
-            transition: all 0.2s ease;
-        }
-
-        .form-control:focus, .form-select:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-        }
-
-        .form-label {
-            font-weight: 600;
-            color: var(--gray-700);
-            margin-bottom: 0.5rem;
-        }
-
-        /* Mobile Toggle */
-        .mobile-toggle {
-            display: none;
-            position: fixed;
-            top: 1rem;
-            left: 1rem;
-            z-index: 1001;
-            background: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: 0.5rem;
-            padding: 0.75rem;
-            font-size: 1.25rem;
-            cursor: pointer;
-            box-shadow: var(--shadow-lg);
-        }
-
-        /* Responsive Design */
-        @media (max-width: 1024px) {
-            .admin-sidebar {
-                transform: translateX(-100%);
-            }
-            
-            .admin-sidebar.show {
-                transform: translateX(0);
-            }
-            
-            .admin-content {
-                margin-left: 0;
-            }
-            
-            .mobile-toggle {
-                display: block;
-            }
-            
-            .stats-grid {
-                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-                gap: 1rem;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .admin-content {
-                padding: 1rem;
-            }
-            
-            .admin-header {
-                padding: 1rem 1.5rem;
-                margin-bottom: 1.5rem;
-            }
-            
-            .header-title {
-                font-size: 1.5rem;
-            }
-            
-            .header-meta {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 0.5rem;
-            }
-            
-            .stat-card {
-                padding: 1.5rem;
-            }
-            
-            .stat-info h3 {
-                font-size: 1.875rem;
-            }
-            
-            .card-body {
-                padding: 1.5rem;
-            }
-            
-            .btn-group {
-                flex-direction: column;
-            }
-        }
-
-        @media (max-width: 640px) {
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .custom-table {
-                font-size: 0.875rem;
-            }
-            
-            .custom-table th,
-            .custom-table td {
-                padding: 0.75rem 1rem;
-            }
-            
-            .action-btn {
-                font-size: 0.8rem;
-                padding: 0.375rem 0.75rem;
-            }
-        }
-
-        /* Tab Content */
-        .tab-content {
-            display: none;
-        }
-        
-        .tab-content.active {
-            display: block;
-        }
-
-        /* Modal Improvements */
-        .modal-content {
-            border-radius: 1rem;
-            border: none;
-            box-shadow: var(--shadow-xl);
-        }
-
-        .modal-header {
-            padding: 1.5rem 2rem 1rem;
-            border-bottom: 1px solid var(--gray-200);
-        }
-
-        .modal-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--gray-900);
-        }
-
-        .modal-body {
-            padding: 1.5rem 2rem;
-        }
-
-        .modal-footer {
-            padding: 1rem 2rem 1.5rem;
-            border-top: 1px solid var(--gray-200);
-            gap: 0.75rem;
-        }
-
-        /* Empty State */
-        .empty-state {
-            text-align: center;
-            padding: 3rem 2rem;
-            color: var(--gray-500);
-        }
-
-        .empty-state i {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            opacity: 0.5;
-        }
-    </style>
+    <link href="assets/css/admin_dashboard.css" rel="stylesheet">
 </head>
 <body>
     <!-- Mobile Toggle Button -->
@@ -754,11 +289,12 @@ $all_notebooks = $allNotebooksStmt->fetchAll(PDO::FETCH_ASSOC);
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#settings" data-tab="settings">
+                    <a class="nav-link" href="#system" data-tab="system">
                         <i class="bi bi-gear"></i>
-                        <span>Cài đặt</span>
+                        <span>Hệ thống</span>
                     </a>
                 </li>
+
             </ul>
             
             <div class="sidebar-divider"></div>
@@ -1005,19 +541,47 @@ $all_notebooks = $allNotebooksStmt->fetchAll(PDO::FETCH_ASSOC);
                                     <tr>
                                         <th>ID</th>
                                         <th>Tiêu đề</th>
+                                        <th>Mô tả</th>
                                         <th>Người tạo</th>
                                         <th>Số từ vựng</th>
                                         <th>Ngày tạo</th>
+                                        <th>Hành động</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php foreach ($all_notebooks as $notebook): ?>
                                     <tr>
                                         <td><?= (int)$notebook['id'] ?></td>
-                                        <td><?= htmlspecialchars($notebook['title']) ?></td>
+                                        <td>
+                                            <div class="notebook-title" title="<?= htmlspecialchars($notebook['title']) ?>">
+                                                <?= htmlspecialchars($notebook['title']) ?>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="notebook-description" title="<?= htmlspecialchars($notebook['description'] ?? '') ?>">
+                                                <?= htmlspecialchars(substr($notebook['description'] ?? '', 0, 50) . (strlen($notebook['description'] ?? '') > 50 ? '...' : '')) ?>
+                                            </div>
+                                        </td>
                                         <td><?= htmlspecialchars($notebook['user_email']) ?></td>
                                         <td><span class="vocab-count-badge"><?= (int)$notebook['vocab_count'] ?></span></td>
                                         <td><?= date('d/m/Y', strtotime($notebook['created_at'])) ?></td>
+                                        <td>
+                                            <div class="btn-group">
+                                                <button type="button" class="action-btn btn-primary-outline"
+                                                        data-bs-toggle="modal" data-bs-target="#editNotebookModal"
+                                                        data-notebook-id="<?= (int)$notebook['id'] ?>"
+                                                        data-notebook-title="<?= htmlspecialchars($notebook['title']) ?>"
+                                                        data-notebook-description="<?= htmlspecialchars($notebook['description'] ?? '') ?>">
+                                                    <i class="bi bi-pencil"></i> Sửa
+                                                </button>
+                                                <button type="button" class="action-btn btn-danger-outline"
+                                                        data-bs-toggle="modal" data-bs-target="#deleteNotebookModal"
+                                                        data-notebook-id="<?= (int)$notebook['id'] ?>"
+                                                        data-notebook-title="<?= htmlspecialchars($notebook['title']) ?>">
+                                                    <i class="bi bi-trash"></i> Xóa
+                                                </button>
+                                            </div>
+                                        </td>
                                     </tr>
                                     <?php endforeach; ?>
                                 </tbody>
@@ -1028,39 +592,104 @@ $all_notebooks = $allNotebooksStmt->fetchAll(PDO::FETCH_ASSOC);
             </div>
         </div>
 
-        <!-- Settings Tab -->
-        <div class="tab-content" id="settings">
-            <div class="content-card">
-                <div class="card-header">
-                    <h6 class="card-title">Cài đặt hệ thống</h6>
+        <!-- System Tab -->
+        <div class="tab-content" id="system">
+            <div class="row">
+                <div class="col-lg-6 mb-4">
+                    <div class="content-card">
+                        <div class="card-header">
+                            <h6 class="card-title">Sao lưu dữ liệu</h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted mb-3">Tạo bản sao lưu cơ sở dữ liệu và file hệ thống</p>
+                            <form method="post" action="" style="display: inline;">
+                                <input type="hidden" name="action" value="create_backup">
+                                <button type="submit" class="action-btn btn-primary-solid">
+                                    <i class="bi bi-download"></i> Tạo sao lưu
+                                </button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <form method="post" action="">
-                        <div class="mb-4">
-                            <label class="form-label">Tiêu đề trang web</label>
-                            <input type="text" class="form-control" name="site_title" value="Germanly - Học tiếng Đức hiệu quả">
+
+                <div class="col-lg-6 mb-4">
+                    <div class="content-card">
+                        <div class="card-header">
+                            <h6 class="card-title">Thông tin hệ thống</h6>
                         </div>
-                        <div class="mb-4">
-                            <label class="form-label">Mô tả trang web</label>
-                            <textarea class="form-control" name="site_description" rows="3">Ứng dụng học từ vựng tiếng Đức với flashcard và quiz</textarea>
-                        </div>
-                        <div class="mb-4">
-                            <label class="form-label">Email liên hệ</label>
-                            <input type="email" class="form-control" name="contact_email" value="contact@germanly.com">
-                        </div>
-                        <div class="mb-4">
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input" name="enable_registration" id="enableRegistration" checked>
-                                <label class="form-check-label" for="enableRegistration">Cho phép đăng ký tài khoản mới</label>
+                        <div class="card-body">
+                            <div class="system-info">
+                                <div class="info-item">
+                                    <span class="info-label">Phiên bản PHP:</span>
+                                    <span class="info-value"><?= phpversion() ?></span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Hệ điều hành:</span>
+                                    <span class="info-value"><?= php_uname('s') . ' ' . php_uname('r') ?></span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Thời gian hoạt động:</span>
+                                    <span class="info-value" id="uptime">Đang tải...</span>
+                                </div>
                             </div>
                         </div>
-                        <button type="submit" class="action-btn btn-primary-solid">
-                            <i class="bi bi-save"></i> Lưu cài đặt
-                        </button>
-                    </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-lg-6 mb-4">
+                    <div class="content-card">
+                        <div class="card-header">
+                            <h6 class="card-title">Thông báo hệ thống</h6>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" action="">
+                                <input type="hidden" name="action" value="send_announcement">
+                                <div class="mb-3">
+                                    <label class="form-label">Tiêu đề thông báo</label>
+                                    <input type="text" class="form-control" name="announcement_title" placeholder="Nhập tiêu đề...">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Nội dung thông báo</label>
+                                    <textarea class="form-control" name="announcement_content" rows="3" placeholder="Nhập nội dung thông báo..."></textarea>
+                                </div>
+                                <button type="submit" class="action-btn btn-success-solid">
+                                    <i class="bi bi-send"></i> Gửi thông báo
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6 mb-4">
+                    <div class="content-card">
+                        <div class="card-header">
+                            <h6 class="card-title">Nhật ký hệ thống (gần đây)</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-wrapper" style="max-height: 300px; overflow-y: auto;">
+                                <table class="custom-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Thời gian</th>
+                                            <th>Loại</th>
+                                            <th>Nội dung</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="systemLogs">
+                                        <tr>
+                                            <td colspan="3" class="text-center text-muted">Đang tải nhật ký...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
+
     </div>
 
     <!-- Change Role Modal -->
@@ -1115,6 +744,68 @@ $all_notebooks = $allNotebooksStmt->fetchAll(PDO::FETCH_ASSOC);
                             <li>Tài khoản người dùng</li>
                             <li>Tất cả sổ tay và nhóm sổ tay</li>
                             <li>Tất cả từ vựng và tiến trình học tập</li>
+                        </ul>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="action-btn btn-secondary-solid" data-bs-dismiss="modal">Hủy</button>
+                        <button type="submit" class="action-btn btn-danger-solid">Xác nhận xóa</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Notebook Modal -->
+    <div class="modal fade" id="editNotebookModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Chỉnh sửa sổ tay</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="post" action="">
+                    <div class="modal-body">
+                        <input type="hidden" name="action" value="edit_notebook">
+                        <input type="hidden" name="notebook_id" id="editNotebookId">
+                        <div class="mb-3">
+                            <label class="form-label">Tiêu đề</label>
+                            <input type="text" class="form-control" name="title" id="editNotebookTitle" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Mô tả</label>
+                            <textarea class="form-control" name="description" id="editNotebookDescription" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="action-btn btn-secondary-solid" data-bs-dismiss="modal">Hủy</button>
+                        <button type="submit" class="action-btn btn-primary-solid">Lưu thay đổi</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Notebook Modal -->
+    <div class="modal fade" id="deleteNotebookModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Xóa sổ tay</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="post" action="">
+                    <div class="modal-body">
+                        <input type="hidden" name="action" value="delete_notebook">
+                        <input type="hidden" name="notebook_id" id="deleteNotebookId">
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <span><strong>Cảnh báo:</strong> Hành động này không thể hoàn tác!</span>
+                        </div>
+                        <p>Bạn có chắc chắn muốn xóa sổ tay: <strong id="deleteNotebookTitle"></strong>?</p>
+                        <p>Tất cả dữ liệu liên quan sẽ bị xóa vĩnh viễn, bao gồm:</p>
+                        <ul>
+                            <li>Tất cả từ vựng trong sổ tay</li>
+                            <li>Tiến trình học tập của người dùng</li>
                         </ul>
                     </div>
                     <div class="modal-footer">
@@ -1190,6 +881,78 @@ $all_notebooks = $allNotebooksStmt->fetchAll(PDO::FETCH_ASSOC);
                 document.getElementById('deleteUserId').value = userId;
                 document.getElementById('deleteUserEmail').textContent = userEmail;
             });
+        });
+
+        // Edit Notebook Modal
+        document.querySelectorAll('[data-bs-target="#editNotebookModal"]').forEach(button => {
+            button.addEventListener('click', function() {
+                const notebookId = this.getAttribute('data-notebook-id');
+                const notebookTitle = this.getAttribute('data-notebook-title');
+                const notebookDescription = this.getAttribute('data-notebook-description');
+                document.getElementById('editNotebookId').value = notebookId;
+                document.getElementById('editNotebookTitle').value = notebookTitle;
+                document.getElementById('editNotebookDescription').value = notebookDescription;
+            });
+        });
+
+        // Delete Notebook Modal
+        document.querySelectorAll('[data-bs-target="#deleteNotebookModal"]').forEach(button => {
+            button.addEventListener('click', function() {
+                const notebookId = this.getAttribute('data-notebook-id');
+                const notebookTitle = this.getAttribute('data-notebook-title');
+                document.getElementById('deleteNotebookId').value = notebookId;
+                document.getElementById('deleteNotebookTitle').textContent = notebookTitle;
+            });
+        });
+
+        // Load system uptime
+        function loadSystemInfo() {
+            const uptimeElement = document.getElementById('uptime');
+            uptimeElement.textContent = 'Đang chạy';
+        }
+
+        // Load system logs from file
+        function loadSystemLogs() {
+            const logsContainer = document.getElementById('systemLogs');
+
+            fetch('assets/logs/system_<?= date("Y-m-d") ?>.log')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Log file not found');
+                    }
+                    return response.text();
+                })
+                .then(data => {
+                    const logs = data.trim().split('\n').slice(-10).reverse(); // Get last 10 logs
+                    const logRows = logs.map(line => {
+                        if (!line.trim()) return '';
+                        const parts = line.split('] ');
+                        if (parts.length < 3) return '';
+
+                        const timestamp = parts[0].replace('[', '');
+                        const type = parts[1].replace('[', '').replace(']', '');
+                        const content = parts.slice(2).join('] ');
+
+                        return `
+                            <tr>
+                                <td>${timestamp}</td>
+                                <td><span class="badge bg-${type === 'error' ? 'danger' : type === 'warning' ? 'warning' : 'info'}">${type}</span></td>
+                                <td>${content}</td>
+                            </tr>
+                        `;
+                    }).join('');
+
+                    logsContainer.innerHTML = logRows || '<tr><td colspan="3" class="text-center text-muted">Chưa có nhật ký nào.</td></tr>';
+                })
+                .catch(error => {
+                    logsContainer.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Không thể tải nhật ký hệ thống.</td></tr>';
+                });
+        }
+
+        // Initialize system functions
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSystemInfo();
+            loadSystemLogs();
         });
 
         // Auto-hide alerts
