@@ -506,21 +506,20 @@ if ($token !== '') {
     </style>
 </head>
 <body>
-<nav class="navbar navbar-light shadow-sm">
-    <div class="container">
-        <a class="navbar-brand" href="<?= isset($token) && $token !== '' ? 'public_notebook.php?token=' . urlencode($token) : 'dashboard.php' ?>">
-            <i class="bi bi-arrow-left"></i> Quay lại
-        </a>
-        <span class="navbar-text text-truncate" style="max-width: 200px;">
-            <?= htmlspecialchars($notebook['title']) ?>
-        </span>
-        <div class="d-flex">
-            <button id="reset-btn" class="btn btn-outline-secondary btn-sm me-2">
-                <i class="bi bi-arrow-clockwise"></i>
-            </button>
-        </div>
-    </div>
-</nav>
+<?php
+$navbar_config = [
+    'type' => 'simple',
+    'back_link' => isset($token) && $token !== '' ? 'public_notebook.php?token=' . urlencode($token) : 'dashboard.php',
+    'page_title' => $notebook['title'],
+    'show_logout' => false
+];
+include 'includes/navbar.php';
+?>
+<div style="position: fixed; top: 10px; right: 15px; z-index: 1001;">
+    <button id="reset-btn" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-clockwise"></i>
+    </button>
+</div>
 
 <div class="quiz-container">
     <!-- Sidebar cho desktop -->

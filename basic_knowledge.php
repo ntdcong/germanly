@@ -14,64 +14,66 @@ if (!isset($_SESSION['user_id'])) {
     <title>Kiến Thức Cơ Bản - GERMANLY</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link href="assets/css/dashboard.css" rel="stylesheet">
     <style>
-        :root {
-            --primary-gradient: linear-gradient(to right, rgb(90, 97, 229), rgb(123, 244, 224));
-            --card-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            --hover-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
         
-        .navbar { 
-            background: var(--primary-gradient); 
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); 
-        }
-        
-        .navbar-brand { 
-            font-weight: bold; 
-            font-size: 1.5rem; 
-            color: rgb(255, 255, 255); 
+        .main-wrapper {
+            background: #f8f9fa;
+            min-height: calc(100vh - 80px);
+            margin-top: 0;
+            border-radius: 0;
         }
         
         .section-card {
-            transition: all 0.3s ease;
             border: none;
-            box-shadow: var(--card-shadow);
-            margin-bottom: 20px;
-            border-radius: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 1.5rem;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.3s ease;
         }
         
         .section-card:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--hover-shadow);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
         }
         
         .section-header {
-            background: var(--primary-gradient);
+            background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
-            padding: 15px 20px;
-            border-radius: 15px 15px 0 0 !important;
+            padding: 1rem 1.25rem;
+            border-radius: 12px 12px 0 0 !important;
             cursor: pointer;
             user-select: none;
+            transition: all 0.2s;
+        }
+        
+        .section-header:hover {
+            background: linear-gradient(135deg, #764ba2, #667eea);
         }
         
         .section-content {
-            padding: 20px;
+            padding: 1.25rem;
             display: none;
+            background: white;
         }
         
         .alphabet-table td, .numbers-table td {
             text-align: center;
-            padding: 12px !important;
-            font-size: 1.2rem;
+            padding: 0.75rem !important;
+            font-size: 1rem;
             font-weight: 500;
         }
         
         .number-example {
             background: #f8f9fa;
-            border-left: 4px solid #3498db;
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: 0 8px 8px 0;
+            border-left: 3px solid #5b67ca;
+            padding: 0.875rem;
+            margin: 0.625rem 0;
+            border-radius: 0 0.4rem 0.4rem 0;
         }
         
         .sticky-sidebar {
@@ -79,34 +81,109 @@ if (!isset($_SESSION['user_id'])) {
             top: 20px;
         }
         
+        .sticky-sidebar .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+        
+        .sticky-sidebar .card-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 1rem;
+            border-radius: 12px 12px 0 0 !important;
+            font-weight: 700;
+        }
+        
+        .list-group-item {
+            padding: 0.75rem 1rem;
+            border: none;
+            border-left: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .list-group-item:hover {
+            background: #f8f9fa;
+            border-left-color: #667eea;
+            padding-left: 1.25rem;
+        }
+        
+        .list-group-item.active {
+            background: #667eea;
+            border-left-color: #667eea;
+            color: white;
+        }
+        
+        .table {
+            margin-bottom: 0;
+        }
+        
+        .table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            padding: 0.75rem;
+        }
+        
+        .table td {
+            padding: 0.75rem;
+        }
+        
+        @media (max-width: 991px) {
+            .sticky-sidebar {
+                position: static;
+                margin-bottom: 2rem;
+            }
+        }
+        
         @media (max-width: 768px) {
             .section-header {
+                font-size: 1rem;
+                padding: 0.875rem 1rem;
+            }
+            
+            .section-header h4 {
                 font-size: 1.1rem;
-                padding: 12px 15px;
             }
             
             .alphabet-table td, .numbers-table td {
+                font-size: 0.9rem;
+                padding: 0.5rem !important;
+            }
+            
+            .table-responsive {
+                font-size: 0.85rem;
+            }
+            
+            .number-example {
+                padding: 0.75rem;
+                font-size: 0.9rem;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .section-header h4 {
                 font-size: 1rem;
-                padding: 8px !important;
+            }
+            
+            .card-header h5 {
+                font-size: 1rem;
             }
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg">
-        <div class="container">
-            <a class="navbar-brand" href="home.php">
-                </i> GERMANLY
-            </a>
-            <div class="d-flex">
-                <a href="logout.php" class="btn btn-outline-light">
-                    <i class="bi bi-box-arrow-right"></i> Đăng xuất
-                </a>
-            </div>
-        </div>
-    </nav>
+    <?php
+    $navbar_config = [
+        'type' => 'main',
+        'show_logout' => true,
+        'brand_link' => 'home.php'
+    ];
+    include 'includes/navbar.php';
+    ?>
 
-    <div class="container mt-4">
+    <div class="main-wrapper">
+    <div class="container py-4">
         <div class="row">
             <!-- Sidebar Navigation -->
             <div class="col-lg-3 mb-4">
@@ -130,6 +207,18 @@ if (!isset($_SESSION['user_id'])) {
                             </a>
                             <a href="#questions" class="list-group-item list-group-item-action">
                                 <i class="bi bi-question"></i> Câu hỏi nghi vấn cơ bản
+                            </a>
+                            <a href="#cases" class="list-group-item list-group-item-action">
+                                <i class="bi bi-grid-3x3"></i> 4 Cách trong tiếng Đức
+                            </a>
+                            <a href="#articles" class="list-group-item list-group-item-action">
+                                <i class="bi bi-book"></i> Mạo từ (der, die, das)
+                            </a>
+                            <a href="#verbs" class="list-group-item list-group-item-action">
+                                <i class="bi bi-lightning"></i> Động từ phổ biến
+                            </a>
+                            <a href="#prepositions" class="list-group-item list-group-item-action">
+                                <i class="bi bi-arrow-right"></i> Giới từ
                             </a>
                         </div>
                     </div>
@@ -581,10 +670,411 @@ if (!isset($_SESSION['user_id'])) {
                                 </div>
                             </div>
                         </div>
-</div>
+                    </div>
+
+                    <!-- 4 CÁCH TRONG TIẾNG ĐỨC -->
+                    <div class="col-12 mb-4">
+                        <div class="card section-card">
+                            <div class="card-header section-header" onclick="toggleSection('cases')">
+                                <h4 class="mb-0">
+                                    <i class="bi bi-grid-3x3"></i> 4 Cách trong tiếng Đức
+                                </h4>
+                            </div>
+                            <div id="cases" class="section-content">
+                                <div class="alert alert-info">
+                                    <strong><i class="bi bi-info-circle"></i> Lưu ý:</strong> Trong tiếng Đức có 4 cách: Nominativ, Akkusativ, Dativ, Genitiv. Mỗi cách dùng cho mục đích khác nhau.
+                                </div>
+                                
+                                <div class="table-responsive">
+                                    <table class="table table-bordered">
+                                        <thead class="table-primary">
+                                            <tr>
+                                                <th>Cách</th>
+                                                <th>Câu hỏi</th>
+                                                <th>Chức năng</th>
+                                                <th>Ví dụ</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td><strong>Nominativ</strong><br>(Cách 1)</td>
+                                                <td>Wer? Was?<br>(Ai? Cái gì?)</td>
+                                                <td>Chủ ngữ trong câu</td>
+                                                <td><strong>Der Mann</strong> liest ein Buch.<br>(Người đàn ông đọc một quyển sách.)</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Akkusativ</strong><br>(Cách 4)</td>
+                                                <td>Wen? Was?<br>(Ai? Cái gì?)</td>
+                                                <td>Tân ngữ trực tiếp</td>
+                                                <td>Ich sehe <strong>den Mann</strong>.<br>(Tôi thấy người đàn ông.)</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Dativ</strong><br>(Cách 3)</td>
+                                                <td>Wem?<br>(Cho ai?)</td>
+                                                <td>Tân ngữ gián tiếp</td>
+                                                <td>Ich helfe <strong>dem Mann</strong>.<br>(Tôi giúp người đàn ông.)</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Genitiv</strong><br>(Cách 2)</td>
+                                                <td>Wessen?<br>(Của ai?)</td>
+                                                <td>Sở hữu</td>
+                                                <td>Das ist das Auto <strong>des Mannes</strong>.<br>(Đó là xe của người đàn ông.)</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MẠO TỪ -->
+                    <div class="col-12 mb-4">
+                        <div class="card section-card">
+                            <div class="card-header section-header" onclick="toggleSection('articles')">
+                                <h4 class="mb-0">
+                                    <i class="bi bi-book"></i> Mạo từ xác định (der, die, das)
+                                </h4>
+                            </div>
+                            <div id="articles" class="section-content">
+                                <h5>Mạo từ xác định theo 4 cách:</h5>
+                                <div class="table-responsive">
+                                    <table class="table table-bordered">
+                                        <thead class="table-success">
+                                            <tr>
+                                                <th>Cách</th>
+                                                <th>Nam (der)</th>
+                                                <th>Nữ (die)</th>
+                                                <th>Trung (das)</th>
+                                                <th>Số nhiều (die)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td><strong>Nominativ</strong></td>
+                                                <td>der</td>
+                                                <td>die</td>
+                                                <td>das</td>
+                                                <td>die</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Akkusativ</strong></td>
+                                                <td><span class="text-danger">den</span></td>
+                                                <td>die</td>
+                                                <td>das</td>
+                                                <td>die</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Dativ</strong></td>
+                                                <td><span class="text-danger">dem</span></td>
+                                                <td><span class="text-danger">der</span></td>
+                                                <td><span class="text-danger">dem</span></td>
+                                                <td><span class="text-danger">den</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Genitiv</strong></td>
+                                                <td><span class="text-danger">des</span></td>
+                                                <td><span class="text-danger">der</span></td>
+                                                <td><span class="text-danger">des</span></td>
+                                                <td><span class="text-danger">der</span></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <h5 class="mt-4">Mạo từ không xác định (ein, eine):</h5>
+                                <div class="table-responsive">
+                                    <table class="table table-bordered">
+                                        <thead class="table-warning">
+                                            <tr>
+                                                <th>Cách</th>
+                                                <th>Nam (ein)</th>
+                                                <th>Nữ (eine)</th>
+                                                <th>Trung (ein)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td><strong>Nominativ</strong></td>
+                                                <td>ein</td>
+                                                <td>eine</td>
+                                                <td>ein</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Akkusativ</strong></td>
+                                                <td><span class="text-danger">einen</span></td>
+                                                <td>eine</td>
+                                                <td>ein</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Dativ</strong></td>
+                                                <td><span class="text-danger">einem</span></td>
+                                                <td><span class="text-danger">einer</span></td>
+                                                <td><span class="text-danger">einem</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Genitiv</strong></td>
+                                                <td><span class="text-danger">eines</span></td>
+                                                <td><span class="text-danger">einer</span></td>
+                                                <td><span class="text-danger">eines</span></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ĐỘNG TỪ PHỔ BIẾN -->
+                    <div class="col-12 mb-4">
+                        <div class="card section-card">
+                            <div class="card-header section-header" onclick="toggleSection('verbs')">
+                                <h4 class="mb-0">
+                                    <i class="bi bi-lightning"></i> Động từ phổ biến
+                                </h4>
+                            </div>
+                            <div id="verbs" class="section-content">
+                                <h5>Động từ "sein" (là, ở):</h5>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="number-example">
+                                            <strong>ich bin</strong> - tôi là/ở
+                                        </div>
+                                        <div class="number-example">
+                                            <strong>du bist</strong> - bạn là/ở
+                                        </div>
+                                        <div class="number-example">
+                                            <strong>er/sie/es ist</strong> - anh ấy/cô ấy/nó là/ở
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="number-example">
+                                            <strong>wir sind</strong> - chúng ta là/ở
+                                        </div>
+                                        <div class="number-example">
+                                            <strong>ihr seid</strong> - các bạn là/ở
+                                        </div>
+                                        <div class="number-example">
+                                            <strong>sie/Sie sind</strong> - họ/Quý vị là/ở
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <h5 class="mt-4">Động từ "haben" (có):</h5>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="number-example">
+                                            <strong>ich habe</strong> - tôi có
+                                        </div>
+                                        <div class="number-example">
+                                            <strong>du hast</strong> - bạn có
+                                        </div>
+                                        <div class="number-example">
+                                            <strong>er/sie/es hat</strong> - anh ấy/cô ấy/nó có
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="number-example">
+                                            <strong>wir haben</strong> - chúng ta có
+                                        </div>
+                                        <div class="number-example">
+                                            <strong>ihr habt</strong> - các bạn có
+                                        </div>
+                                        <div class="number-example">
+                                            <strong>sie/Sie haben</strong> - họ/Quý vị có
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <h5 class="mt-4">Động từ "werden" (trở thành):</h5>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="number-example">
+                                            <strong>ich werde</strong> - tôi trở thành
+                                        </div>
+                                        <div class="number-example">
+                                            <strong>du wirst</strong> - bạn trở thành
+                                        </div>
+                                        <div class="number-example">
+                                            <strong>er/sie/es wird</strong> - anh ấy/cô ấy/nó trở thành
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="number-example">
+                                            <strong>wir werden</strong> - chúng ta trở thành
+                                        </div>
+                                        <div class="number-example">
+                                            <strong>ihr werdet</strong> - các bạn trở thành
+                                        </div>
+                                        <div class="number-example">
+                                            <strong>sie/Sie werden</strong> - họ/Quý vị trở thành
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- GIỚI TỪ -->
+                    <div class="col-12 mb-4">
+                        <div class="card section-card">
+                            <div class="card-header section-header" onclick="toggleSection('prepositions')">
+                                <h4 class="mb-0">
+                                    <i class="bi bi-arrow-right"></i> Giới từ
+                                </h4>
+                            </div>
+                            <div id="prepositions" class="section-content">
+                                <h5>Giới từ đi với Akkusativ:</h5>
+                                <div class="table-responsive">
+                                    <table class="table table-bordered">
+                                        <thead class="table-info">
+                                            <tr>
+                                                <th>Giới từ</th>
+                                                <th>Nghĩa</th>
+                                                <th>Ví dụ</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td><strong>durch</strong></td>
+                                                <td>qua, xuyên qua</td>
+                                                <td>Wir gehen <strong>durch den</strong> Park. (Chúng ta đi qua công viên.)</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>für</strong></td>
+                                                <td>cho, vì</td>
+                                                <td>Das Geschenk ist <strong>für dich</strong>. (Quà tặng cho bạn.)</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>gegen</strong></td>
+                                                <td>chống lại</td>
+                                                <td>Ich bin <strong>gegen den</strong> Plan. (Tôi chống lại kế hoạch.)</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>ohne</strong></td>
+                                                <td>không có</td>
+                                                <td>Ich gehe <strong>ohne dich</strong>. (Tôi đi không có bạn.)</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>um</strong></td>
+                                                <td>xung quanh, vào lúc</td>
+                                                <td>Wir treffen uns <strong>um</strong> 8 Uhr. (Chúng ta gặp nhau lúc 8 giờ.)</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <h5 class="mt-4">Giới từ đi với Dativ:</h5>
+                                <div class="table-responsive">
+                                    <table class="table table-bordered">
+                                        <thead class="table-warning">
+                                            <tr>
+                                                <th>Giới từ</th>
+                                                <th>Nghĩa</th>
+                                                <th>Ví dụ</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td><strong>aus</strong></td>
+                                                <td>từ (xuất xứ)</td>
+                                                <td>Ich komme <strong>aus der</strong> Schule. (Tôi đến từ trường.)</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>bei</strong></td>
+                                                <td>ở chỗ, bên cạnh</td>
+                                                <td>Ich wohne <strong>bei meinen</strong> Eltern. (Tôi sống với bố mẹ.)</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>mit</strong></td>
+                                                <td>với, cùng</td>
+                                                <td>Ich fahre <strong>mit dem</strong> Bus. (Tôi đi bằng xe buýt.)</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>nach</strong></td>
+                                                <td>sau, đến (địa danh)</td>
+                                                <td>Ich fahre <strong>nach</strong> Berlin. (Tôi đi Berlin.)</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>seit</strong></td>
+                                                <td>kể từ</td>
+                                                <td>Ich lerne Deutsch <strong>seit einem</strong> Jahr. (Tôi học tiếng Đức được 1 năm.)</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>von</strong></td>
+                                                <td>của, từ</td>
+                                                <td>Das Buch ist <strong>von ihm</strong>. (Quyển sách của anh ấy.)</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>zu</strong></td>
+                                                <td>đến, tới</td>
+                                                <td>Ich gehe <strong>zur</strong> Schule. (Tôi đi đến trường.)</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <h5 class="mt-4">Giới từ hai cách (Wechselpräpositionen):</h5>
+                                <div class="alert alert-warning">
+                                    <strong><i class="bi bi-info-circle"></i> Quan trọng:</strong> Những giới từ này dùng <strong>Akkusativ</strong> khi có chuyển động (Wohin? - đi đâu), và <strong>Dativ</strong> khi tĩnh (Wo? - ở đâu).
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-bordered">
+                                        <thead class="table-success">
+                                            <tr>
+                                                <th>Giới từ</th>
+                                                <th>Nghĩa</th>
+                                                <th>Akkusativ (Wohin?)</th>
+                                                <th>Dativ (Wo?)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td><strong>an</strong></td>
+                                                <td>ở, tại, vào</td>
+                                                <td>Ich hänge das Bild <strong>an die</strong> Wand. (Tôi treo tranh lên tường.)</td>
+                                                <td>Das Bild hängt <strong>an der</strong> Wand. (Tranh treo ở tường.)</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>auf</strong></td>
+                                                <td>trên</td>
+                                                <td>Ich lege das Buch <strong>auf den</strong> Tisch. (Tôi đặt sách lên bàn.)</td>
+                                                <td>Das Buch liegt <strong>auf dem</strong> Tisch. (Sách nằm trên bàn.)</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>in</strong></td>
+                                                <td>trong, vào</td>
+                                                <td>Ich gehe <strong>in die</strong> Schule. (Tôi đi vào trường.)</td>
+                                                <td>Ich bin <strong>in der</strong> Schule. (Tôi ở trong trường.)</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>über</strong></td>
+                                                <td>trên, qua</td>
+                                                <td>Der Vogel fliegt <strong>über das</strong> Haus. (Chim bay qua nhà.)</td>
+                                                <td>Die Lampe hängt <strong>über dem</strong> Tisch. (Đèn treo trên bàn.)</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>unter</strong></td>
+                                                <td>dưới</td>
+                                                <td>Die Katze läuft <strong>unter den</strong> Tisch. (Mèo chạy xuống dưới bàn.)</td>
+                                                <td>Die Katze ist <strong>unter dem</strong> Tisch. (Mèo ở dưới bàn.)</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>vor</strong></td>
+                                                <td>trước</td>
+                                                <td>Ich stelle das Auto <strong>vor das</strong> Haus. (Tôi đỗ xe trước nhà.)</td>
+                                                <td>Das Auto steht <strong>vor dem</strong> Haus. (Xe đỗ trước nhà.)</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
+    </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

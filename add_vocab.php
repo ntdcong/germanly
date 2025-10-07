@@ -74,7 +74,7 @@ if (isset($_POST['edit_vocab'])) {
 // Tìm kiếm
 $search = trim($_GET['search'] ?? '');
 $page = max(1, (int)($_GET['page'] ?? 1));
-$limit = 10;
+$limit = 15;
 $offset = ($page - 1) * $limit;
 
 $where_clause = '';
@@ -100,515 +100,620 @@ $params[] = $offset;
 $stmt = $pdo->prepare("SELECT * FROM vocabularies WHERE notebook_id=? $where_clause ORDER BY created_at DESC LIMIT ? OFFSET ?");
 $stmt->execute($params);
 $vocabs = $stmt->fetchAll();
-
-// Lấy từ vựng cần chỉnh sửa (cho modal)
-$edit_vocab = null;
-if (isset($_GET['edit'])) {
-    $vocab_id = (int)$_GET['edit'];
-    $stmt = $pdo->prepare('SELECT * FROM vocabularies WHERE id=? AND notebook_id=?');
-    $stmt->execute([$vocab_id, $notebook_id]);
-    $edit_vocab = $stmt->fetch();
-}
 ?>
 
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
-    <title>Quản lý từ vựng</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Quản lý từ vựng - <?= htmlspecialchars($notebook['title']) ?></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <style>
+        :root {
+            --primary: #5b67ca;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+        }
+
         body {
-            background: #f8f9fa;
-            font-family: sans-serif;
-            padding-bottom: 20px;
+            background: #f4f6fb;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', sans-serif;
         }
 
-        .form-control:focus {
-            box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, .25);
-        }
-
-        .card-form {
+        .add-form-wrapper {
             background: white;
             border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid var(--primary);
         }
 
-        .btn-sm {
-            padding: 6px 10px;
-            font-size: 12px;
+        .quick-form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
         }
 
-        .btn-sm i {
-            margin-right: 3px;
+        .form-field {
+            position: relative;
         }
 
-        .navbar-brand {
+        .form-field label {
+            font-size: 0.85rem;
             font-weight: 600;
-            color:rgb(255, 255, 255);
-            font-size: 18px;
+            color: #666;
+            margin-bottom: 0.35rem;
+            display: block;
         }
 
-        .navbar-light {
-            background: linear-gradient(to right,rgb(90, 97, 229),rgb(123, 244, 224));
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        .form-field input {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            transition: all 0.2s;
+            font-size: 0.95rem;
         }
 
-        .navbar-text {
-            color: black !important;
-            font-size: 14px;
+        .form-field input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(91, 103, 202, 0.1);
         }
 
-        .vocab-card {
+        .gender-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .gender-btn {
+            flex: 1;
+            padding: 0.5rem;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .gender-btn:hover {
+            border-color: var(--primary);
+            background: rgba(91, 103, 202, 0.05);
+        }
+
+        .gender-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+        }
+
+        .btn-submit {
+            background: var(--success);
+            color: white;
+            border: none;
+            padding: 0.7rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-submit:hover {
+            background: #218838;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn-clear {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 0.7rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-clear:hover {
+            background: #5a6268;
+        }
+
+        .vocab-list {
             background: white;
             border-radius: 12px;
-            padding: 15px;
-            margin-bottom: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            border: 1px solid #eee;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+
+        .vocab-item {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.2s;
+        }
+
+        .vocab-item:hover {
+            background: #f8f9fa;
+        }
+
+        .vocab-item:last-child {
+            border-bottom: none;
+        }
+
+        .vocab-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 0.5rem;
         }
 
         .vocab-word {
-            font-weight: 600;
+            font-size: 1.1rem;
+            font-weight: 700;
             color: #2c3e50;
-            font-size: 18px;
-            margin-bottom: 5px;
         }
 
-        .vocab-phonetic {
-            color: #7f8c8d;
-            font-style: italic;
-            font-size: 14px;
-            margin-bottom: 8px;
+        .vocab-genus {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+        }
+
+        .vocab-genus.der {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .vocab-genus.die {
+            background: #fce4ec;
+            color: #c2185b;
+        }
+
+        .vocab-genus.das {
+            background: #fff3e0;
+            color: #f57c00;
         }
 
         .vocab-meaning {
-            color: #34495e;
-            font-size: 16px;
-            margin-bottom: 8px;
+            color: #555;
+            font-size: 0.95rem;
+            margin-bottom: 0.5rem;
         }
 
-        .vocab-detail {
-            color: #7f8c8d;
-            font-size: 13px;
-            margin-bottom: 3px;
+        .vocab-meta {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.85rem;
+            color: #888;
         }
 
         .vocab-actions {
             display: flex;
-            gap: 8px;
-            margin-top: 12px;
+            gap: 0.5rem;
         }
 
-        .table-responsive {
-            border-radius: 8px;
-            overflow: hidden;
+        .btn-icon {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .table th {
-            background-color: #f8f9fa;
-            font-weight: 600;
+        .btn-icon.edit {
+            background: #fff3cd;
+            color: #856404;
         }
 
-        .search-form {
-            margin-bottom: 20px;
-        }
-
-        .search-form .form-control {
-            border-radius: 25px 0 0 25px;
-            border: 2px solid #dee2e6;
-        }
-
-        .search-form .btn {
-            border-radius: 0 25px 25px 0;
-            border: 2px solid #0d6efd;
-        }
-
-        .pagination {
-            margin-top: 20px;
-        }
-
-        .pagination .page-link {
-            border-radius: 8px !important;
-            margin: 0 2px;
-            border: 1px solid #dee2e6;
-        }
-
-        .pagination .active .page-link {
-            background-color: #0d6efd;
-            border-color: #0d6efd;
-        }
-
-        .modal-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .btn-icon.edit:hover {
+            background: #ffc107;
             color: white;
-            border-radius: 8px 8px 0 0 !important;
         }
 
-        .btn-modal {
-            padding: 8px 16px;
-            font-size: 14px;
+        .btn-icon.delete {
+            background: #f8d7da;
+            color: #721c24;
         }
 
-        /* Desktop only */
-        @media (min-width: 768px) {
-            .mobile-view {
-                display: none;
-            }
+        .btn-icon.delete:hover {
+            background: #dc3545;
+            color: white;
         }
 
-        /* Mobile only */
-        @media (max-width: 767.98px) {
-            .desktop-view {
-                display: none;
+        .search-bar {
+            margin-bottom: 1.5rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .search-bar input {
+            flex: 1;
+            padding: 0.7rem 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.95rem;
+        }
+
+        .search-bar input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .search-bar button {
+            padding: 0.7rem 1.5rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .list-header {
+            padding: 1rem 1.25rem;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .pagination-wrapper {
+            display: flex;
+            justify-content: center;
+            margin-top: 1.5rem;
+            gap: 0.5rem;
+        }
+
+        .page-btn {
+            padding: 0.5rem 0.9rem;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            color: #333;
+        }
+
+        .page-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .page-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .shortcut-hint {
+            font-size: 0.8rem;
+            color: #999;
+            margin-top: 0.5rem;
+            text-align: right;
+        }
+
+        @media (max-width: 768px) {
+            .quick-form {
+                grid-template-columns: 1fr;
             }
 
-            .card-form {
-                padding: 15px;
+            .vocab-header {
+                flex-direction: column;
             }
 
-            .vocab-card {
-                padding: 12px;
-            }
-
-            .vocab-word {
-                font-size: 16px;
-            }
-
-            .vocab-meaning {
-                font-size: 15px;
-            }
-
-            .vocab-detail {
-                font-size: 12px;
-            }
-
-            .navbar-brand {
-                font-size: 16px;
-            }
-
-            .navbar-text {
-                font-size: 12px;
-                max-width: 150px;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-            }
-
-            .btn-group-sm .btn {
-                padding: 4px 8px;
-                font-size: 11px;
+            .vocab-actions {
+                margin-top: 0.75rem;
             }
         }
     </style>
 </head>
+
 <body>
+    <?php
+    $navbar_config = [
+        'type' => 'minimal',
+        'back_link' => 'dashboard.php',
+        'page_title' => '📖 ' . $notebook['title'],
+        'show_logout' => false,
+        'show_brand' => false,
+    ];
+    include 'includes/navbar.php';
+    ?>
 
-<nav class="navbar navbar-light sticky-top">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="dashboard.php">
-            <i class="bi bi-arrow-left"></i> Trở lại
-        </a>
-        <span class="navbar-text text-truncate text-black fs-6 " style="max-width: 500px;">
-            <i class="bi bi-book"></i> Sổ tay:
-            <?= htmlspecialchars($notebook['title']) ?>
-        </span>
-    </div>
-</nav>
-
-<div class="container-fluid px-3 px-md-4 mt-3">
-    <?php if ($message): ?>
-        <div class="alert alert-<?= $message_type ?> alert-dismissible fade show" role="alert">
-            <?= $message ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    <?php endif; ?>
-
-    <!-- Nút mở modal thêm từ -->
-    <div class="d-grid gap-2 mb-3">
-        <button class="btn btn-success btn-modal" data-bs-toggle="modal" data-bs-target="#addVocabModal">
-            <i class="bi bi-plus-circle"></i> Thêm từ vựng mới
-        </button>
-    </div>
-
-    <!-- Tìm kiếm -->
-    <div class="search-form">
-        <form method="get" class="d-flex">
-            <input type="hidden" name="notebook_id" value="<?= $notebook_id ?>">
-            <input type="text" name="search" class="form-control" placeholder="Tìm từ vựng, nghĩa, ghi chú..." value="<?= htmlspecialchars($search) ?>">
-            <button class="btn btn-primary" type="submit">
-                <i class="bi bi-search"></i>
-            </button>
-        </form>
-    </div>
-
-    <!-- Hiển thị kết quả -->
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="mb-0">
-            <i class="bi bi-book"></i> Từ vựng 
-            <?php if ($search): ?>
-                <small class="text-muted">(Tìm: "<?= htmlspecialchars($search) ?>")</small>
-            <?php endif; ?>
-        </h5>
-        <small class="text-muted">
-            <?= $total ?> từ • Trang <?= $page ?>/<?= $totalPages ?>
-        </small>
-    </div>
-
-    <!-- View cho Desktop (Table) -->
-    <div class="desktop-view">
-        <div class="table-responsive">
-            <table class="table table-bordered table-hover table-striped align-middle">
-                <thead class="table-light">
-                    <tr class="text-center">
-                        <th>Từ</th>
-                        <th>Phiên âm</th>
-                        <th>Nghĩa</th>
-                        <th>Ghi chú</th>
-                        <th>Số nhiều</th>
-                        <th>Giống</th>
-                        <th width="120">Thao tác</th>
-                    </tr>
-                </thead>
-                <tbody>
-                <?php foreach ($vocabs as $v): ?>
-                    <tr>
-                        <td><strong><?= htmlspecialchars($v['word']) ?></strong></td>
-                        <td><?= htmlspecialchars($v['phonetic']) ?></td>
-                        <td><?= htmlspecialchars($v['meaning']) ?></td>
-                        <td><?= htmlspecialchars($v['note']) ?></td>
-                        <td><?= htmlspecialchars($v['plural']) ?></td>
-                        <td><?= htmlspecialchars($v['genus']) ?></td>
-                        <td class="text-center">
-                            <div class="btn-group btn-group-sm" role="group">
-                                <button class="btn btn-warning" onclick="openEditModal(<?= $v['id'] ?>, '<?= htmlspecialchars($v['word']) ?>', '<?= htmlspecialchars($v['phonetic']) ?>', '<?= htmlspecialchars($v['meaning']) ?>', '<?= htmlspecialchars($v['note']) ?>', '<?= htmlspecialchars($v['plural']) ?>', '<?= htmlspecialchars($v['genus']) ?>')">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <a href="?notebook_id=<?= $notebook_id ?>&delete=<?= $v['id'] ?>" class="btn btn-danger"
-                                   onclick="return confirm('Bạn có chắc chắn muốn xoá từ này?');">
-                                   <i class="bi bi-trash"></i>
-                                </a>
-                            </div>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-                <?php if (empty($vocabs)): ?>
-                    <tr>
-                        <td colspan="7" class="text-center text-muted py-5">
-                            <i class="bi bi-emoji-frown fs-1 d-block mb-2"></i>
-                            Không tìm thấy từ vựng nào
-                        </td>
-                    </tr>
-                <?php endif; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- View cho Mobile (Cards) -->
-    <div class="mobile-view">
-        <?php foreach ($vocabs as $v): ?>
-            <div class="vocab-card">
-                <div class="vocab-word">
-                    <?= htmlspecialchars($v['word']) ?>
-                    <?php if ($v['phonetic']): ?>
-                        <span class="vocab-phonetic">/<?= htmlspecialchars($v['phonetic']) ?>/</span>
-                    <?php endif; ?>
-                </div>
-                <div class="vocab-meaning"><?= htmlspecialchars($v['meaning']) ?></div>
-                
-                <?php if ($v['note']): ?>
-                    <div class="vocab-detail">
-                        <i class="bi bi-info-circle"></i> <?= htmlspecialchars($v['note']) ?>
-                    </div>
-                <?php endif; ?>
-                
-                <?php if ($v['plural']): ?>
-                    <div class="vocab-detail">
-                        <i class="bi bi-collection"></i> Số nhiều: <?= htmlspecialchars($v['plural']) ?>
-                    </div>
-                <?php endif; ?>
-                
-                <?php if ($v['genus']): ?>
-                    <div class="vocab-detail">
-                        <i class="bi bi-gender-ambiguous"></i> Giống: <?= htmlspecialchars($v['genus']) ?>
-                    </div>
-                <?php endif; ?>
-                
-                <div class="vocab-actions">
-                    <button class="btn btn-warning btn-sm flex-fill" onclick="openEditModal(<?= $v['id'] ?>, '<?= htmlspecialchars($v['word']) ?>', '<?= htmlspecialchars($v['phonetic']) ?>', '<?= htmlspecialchars($v['meaning']) ?>', '<?= htmlspecialchars($v['note']) ?>', '<?= htmlspecialchars($v['plural']) ?>', '<?= htmlspecialchars($v['genus']) ?>')">
-                        <i class="bi bi-pencil"></i> Sửa
-                    </button>
-                    <a href="?notebook_id=<?= $notebook_id ?>&delete=<?= $v['id'] ?>" class="btn btn-danger btn-sm flex-fill"
-                       onclick="return confirm('Bạn có chắc chắn muốn xoá từ này?');">
-                       <i class="bi bi-trash"></i> Xoá
-                    </a>
-                </div>
-            </div>
-        <?php endforeach; ?>
-        
-        <?php if (empty($vocabs)): ?>
-            <div class="text-center text-muted py-5">
-                <i class="bi bi-emoji-frown fs-1 d-block mb-2"></i>
-                <p>Không tìm thấy từ vựng nào</p>
+    <div class="container-fluid px-3 px-md-4 mt-3" style="max-width: 1200px;">
+        <?php if ($message): ?>
+            <div class="alert alert-<?= $message_type ?> alert-dismissible fade show" role="alert">
+                <?= $message ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         <?php endif; ?>
-    </div>
 
-    <!-- Phân trang -->
-    <?php if ($totalPages > 1): ?>
-        <nav>
-            <ul class="pagination justify-content-center">
+        <!-- Quick Add Form -->
+        <div class="add-form-wrapper">
+            <h5 class="mb-3"><i class="bi bi-plus-circle"></i> Thêm từ vựng nhanh</h5>
+            <form method="post" id="quickAddForm">
+                <div class="quick-form">
+                    <div class="form-field">
+                        <label>Từ vựng <span class="text-danger">*</span></label>
+                        <input type="text" name="word" id="wordInput" placeholder="Ví dụ: Haus" required autofocus>
+                    </div>
+
+                    <div class="form-field">
+                        <label>Nghĩa <span class="text-danger">*</span></label>
+                        <input type="text" name="meaning" id="meaningInput" placeholder="Ví dụ: Ngôi nhà" required>
+                    </div>
+
+                    <div class="form-field">
+                        <label>Giống</label>
+                        <input type="text" name="genus" id="genusInput" placeholder="der/die/das" readonly>
+                        <div class="gender-buttons mt-2">
+                            <button type="button" class="gender-btn" onclick="setGender('der')">der</button>
+                            <button type="button" class="gender-btn" onclick="setGender('die')">die</button>
+                            <button type="button" class="gender-btn" onclick="setGender('das')">das</button>
+                        </div>
+                    </div>
+
+                    <div class="form-field">
+                        <label>Số nhiều</label>
+                        <input type="text" name="plural" id="pluralInput" placeholder="Ví dụ: Häuser">
+                    </div>
+
+                    <div class="form-field">
+                        <label>Phiên âm</label>
+                        <input type="text" name="phonetic" id="phoneticInput" placeholder="IPA (optional)">
+                    </div>
+
+                    <div class="form-field">
+                        <label>Ghi chú</label>
+                        <input type="text" name="note" id="noteInput" placeholder="Thêm ghi chú...">
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-clear" onclick="clearForm()">
+                        <i class="bi bi-x-circle"></i> Xóa
+                    </button>
+                    <button type="submit" name="add_vocab" class="btn-submit">
+                        <i class="bi bi-check-circle"></i> Thêm từ
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-bar">
+            <form method="get" style="display: flex; gap: 0.5rem; flex: 1;">
+                <input type="hidden" name="notebook_id" value="<?= $notebook_id ?>">
+                <input type="text" name="search" placeholder="Tìm kiếm từ vựng..." value="<?= htmlspecialchars($search) ?>">
+                <button type="submit"><i class="bi bi-search"></i> Tìm</button>
+            </form>
+        </div>
+
+        <!-- Vocab List -->
+        <div class="vocab-list">
+            <div class="list-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-list-ul"></i> Danh sách từ vựng
+                    <?php if ($search): ?>
+                        <small class="text-muted">(Kết quả cho: "<?= htmlspecialchars($search) ?>")</small>
+                    <?php endif; ?>
+                </h6>
+                <small class="text-muted"><?= $total ?> từ • Trang <?= $page ?>/<?= $totalPages ?></small>
+            </div>
+
+            <?php foreach ($vocabs as $v): ?>
+                <div class="vocab-item">
+                    <div class="vocab-header">
+                        <div>
+                            <span class="vocab-word"><?= htmlspecialchars($v['word']) ?></span>
+                            <?php if ($v['genus']): ?>
+                                <span class="vocab-genus <?= strtolower($v['genus']) ?>">
+                                    <?= htmlspecialchars($v['genus']) ?>
+                                </span>
+                            <?php endif; ?>
+                        </div>
+                        <div class="vocab-actions">
+                            <button class="btn-icon edit" data-bs-toggle="modal" data-bs-target="#editModal"
+                                onclick="openEditModal(<?= $v['id'] ?>, <?= htmlspecialchars(json_encode([
+                                                                            'word' => $v['word'],
+                                                                            'meaning' => $v['meaning'],
+                                                                            'genus' => $v['genus'],
+                                                                            'plural' => $v['plural'],
+                                                                            'phonetic' => $v['phonetic'],
+                                                                            'note' => $v['note']
+                                                                        ])) ?>)" title="Sửa">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn-icon delete" onclick="deleteVocab(<?= $v['id'] ?>)" title="Xóa">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="vocab-meaning"><?= htmlspecialchars($v['meaning']) ?></div>
+                    <div class="vocab-meta">
+                        <?php if ($v['plural']): ?>
+                            <span><i class="bi bi-card-list"></i> Plural: <?= htmlspecialchars($v['plural']) ?></span>
+                        <?php endif; ?>
+                        <?php if ($v['phonetic']): ?>
+                            <span><i class="bi bi-mic"></i> <?= htmlspecialchars($v['phonetic']) ?></span>
+                        <?php endif; ?>
+                        <?php if ($v['note']): ?>
+                            <span><i class="bi bi-info-circle"></i> <?= htmlspecialchars($v['note']) ?></span>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+
+            <?php if (empty($vocabs)): ?>
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                    <p class="mt-2">Chưa có từ vựng nào</p>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- Pagination -->
+        <?php if ($totalPages > 1): ?>
+            <div class="pagination-wrapper">
                 <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                    <li class="page-item <?= $i == $page ? 'active' : '' ?>">
-                        <a class="page-link" href="?notebook_id=<?= $notebook_id ?>&page=<?= $i ?>&search=<?= urlencode($search) ?>"><?= $i ?></a>
-                    </li>
+                    <a href="?notebook_id=<?= $notebook_id ?>&page=<?= $i ?>&search=<?= urlencode($search) ?>"
+                        class="page-btn <?= $i == $page ? 'active' : '' ?>"><?= $i ?></a>
                 <?php endfor; ?>
-            </ul>
-        </nav>
-    <?php endif; ?>
-</div>
-
-<!-- Modal Thêm Từ Vựng -->
-<div class="modal fade" id="addVocabModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="bi bi-journal-plus"></i> Thêm từ vựng mới
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form method="post">
-                <div class="modal-body">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Từ vựng <span class="text-danger">*</span></label>
-                            <input type="text" name="word" class="form-control" placeholder="Nhập từ vựng" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Phiên âm</label>
-                            <input type="text" name="phonetic" class="form-control" placeholder="Ví dụ: /wɝːd/">
-                        </div>
-                        <div class="col-md-12">
-                            <label class="form-label">Nghĩa <span class="text-danger">*</span></label>
-                            <input type="text" name="meaning" class="form-control" placeholder="Nhập nghĩa của từ" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Ghi chú</label>
-                            <input type="text" name="note" class="form-control" placeholder="Ghi chú bổ sung">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Số nhiều</label>
-                            <input type="text" name="plural" class="form-control" placeholder="Plural form">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Giống</label>
-                            <input type="text" name="genus" class="form-control" placeholder="Giống danh từ">
+        <?php endif; ?>
+        </br>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Set gender
+        function setGender(gender) {
+            document.getElementById('genusInput').value = gender;
+            document.querySelectorAll('.gender-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        // Clear form
+        function clearForm() {
+            document.getElementById('quickAddForm').reset();
+            document.querySelectorAll('.gender-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('wordInput').focus();
+        }
+
+        // Delete vocab
+        function deleteVocab(id) {
+            if (confirm('Bạn có chắc chắn muốn xóa từ này?')) {
+                window.location.href = '?notebook_id=<?= $notebook_id ?>&delete=' + id;
+            }
+        }
+
+        // Edit vocab modal
+        function openEditModal(id, data) {
+            document.getElementById('edit_vocab_id').value = id;
+            document.getElementById('edit_word').value = data.word;
+            document.getElementById('edit_meaning').value = data.meaning;
+            document.getElementById('edit_genus').value = data.genus;
+            document.getElementById('edit_plural').value = data.plural;
+            document.getElementById('edit_phonetic').value = data.phonetic;
+            document.getElementById('edit_note').value = data.note;
+
+            // Highlight gender button in modal
+            document.querySelectorAll('.gender-btn-edit').forEach(btn => {
+                if (btn.textContent === data.genus) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        // Set gender for edit modal
+        function setGenderEdit(gender) {
+            document.getElementById('edit_genus').value = gender;
+            document.querySelectorAll('.gender-btn-edit').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Ctrl+Enter to submit
+            if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('quickAddForm').submit();
+            }
+
+            // Esc to clear
+            if (e.key === 'Escape') {
+                clearForm();
+            }
+        });
+
+        // Auto-focus on page load
+        window.addEventListener('load', () => {
+            document.getElementById('wordInput').focus();
+        });
+    </script>
+
+    <!-- Edit Modal -->
+    <div class="modal fade" id="editModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <h5 class="modal-title">
+                        <i class="bi bi-pencil-square"></i> Chỉnh sửa từ vựng
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="post">
+                    <input type="hidden" name="vocab_id" id="edit_vocab_id">
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Từ vựng <span class="text-danger">*</span></label>
+                                <input type="text" name="word" id="edit_word" class="form-control" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Nghĩa <span class="text-danger">*</span></label>
+                                <input type="text" name="meaning" id="edit_meaning" class="form-control" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Giống</label>
+                                <input type="text" name="genus" id="edit_genus" class="form-control" readonly>
+                                <div class="gender-buttons mt-2">
+                                    <button type="button" class="gender-btn gender-btn-edit" onclick="setGenderEdit('der')">der</button>
+                                    <button type="button" class="gender-btn gender-btn-edit" onclick="setGenderEdit('die')">die</button>
+                                    <button type="button" class="gender-btn gender-btn-edit" onclick="setGenderEdit('das')">das</button>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Số nhiều</label>
+                                <input type="text" name="plural" id="edit_plural" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Phiên âm</label>
+                                <input type="text" name="phonetic" id="edit_phonetic" class="form-control">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold">Ghi chú</label>
+                                <input type="text" name="note" id="edit_note" class="form-control">
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="bi bi-x"></i> Hủy
-                    </button>
-                    <button type="submit" name="add_vocab" class="btn btn-success">
-                        <i class="bi bi-plus-circle"></i> Thêm từ
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Modal Chỉnh Sửa Từ Vựng -->
-<div class="modal fade" id="editVocabModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="bi bi-pencil"></i> Chỉnh sửa từ vựng
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <form method="post">
-                <input type="hidden" name="vocab_id" id="edit_vocab_id">
-                <div class="modal-body">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Từ vựng <span class="text-danger">*</span></label>
-                            <input type="text" name="word" id="edit_word" class="form-control" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Phiên âm</label>
-                            <input type="text" name="phonetic" id="edit_phonetic" class="form-control">
-                        </div>
-                        <div class="col-md-12">
-                            <label class="form-label">Nghĩa <span class="text-danger">*</span></label>
-                            <input type="text" name="meaning" id="edit_meaning" class="form-control" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Ghi chú</label>
-                            <input type="text" name="note" id="edit_note" class="form-control">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Số nhiều</label>
-                            <input type="text" name="plural" id="edit_plural" class="form-control">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Giống</label>
-                            <input type="text" name="genus" id="edit_genus" class="form-control">
-                        </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle"></i> Hủy
+                        </button>
+                        <button type="submit" name="edit_vocab" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> Cập nhật
+                        </button>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="bi bi-x"></i> Hủy
-                    </button>
-                    <button type="submit" name="edit_vocab" class="btn btn-warning">
-                        <i class="bi bi-save"></i> Lưu thay đổi
-                    </button>
-                </div>
-            </form>
+                </form>
+            </div>
         </div>
     </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-// Hàm mở modal chỉnh sửa với dữ liệu
-function openEditModal(id, word, phonetic, meaning, note, plural, genus) {
-    document.getElementById('edit_vocab_id').value = id;
-    document.getElementById('edit_word').value = word;
-    document.getElementById('edit_phonetic').value = phonetic;
-    document.getElementById('edit_meaning').value = meaning;
-    document.getElementById('edit_note').value = note;
-    document.getElementById('edit_plural').value = plural;
-    document.getElementById('edit_genus').value = genus;
-    
-    var editModal = new bootstrap.Modal(document.getElementById('editVocabModal'));
-    editModal.show();
-}
-
-// Tự động mở modal chỉnh sửa nếu có dữ liệu
-<?php if ($edit_vocab): ?>
-document.addEventListener('DOMContentLoaded', function() {
-    openEditModal(
-        <?= $edit_vocab['id'] ?>,
-        '<?= htmlspecialchars($edit_vocab['word']) ?>',
-        '<?= htmlspecialchars($edit_vocab['phonetic']) ?>',
-        '<?= htmlspecialchars($edit_vocab['meaning']) ?>',
-        '<?= htmlspecialchars($edit_vocab['note']) ?>',
-        '<?= htmlspecialchars($edit_vocab['plural']) ?>',
-        '<?= htmlspecialchars($edit_vocab['genus']) ?>'
-    );
-});
-<?php endif; ?>
-
-</script>
 </body>
+
 </html>

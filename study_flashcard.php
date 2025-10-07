@@ -84,16 +84,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_status' && $_SERVER['R
 </head>
 
 <body>
-    <nav class="navbar navbar-light shadow-sm">
-        <div class="container">
-            <a class="navbar-brand" href="<?= isset($token) && $token !== '' ? 'public_notebook.php?token=' . urlencode($token) : 'dashboard.php' ?>">
-                <i class="bi bi-arrow-left"></i> Quay lại
-            </a>
-            <span class="navbar-text text-truncate" style="max-width: 200px;">
-                <?= htmlspecialchars($notebook['title']) ?>
-            </span>
-        </div>
-    </nav>
+    <?php
+    $navbar_config = [
+        'type' => 'simple',
+        'back_link' => isset($token) && $token !== '' ? 'public_notebook.php?token=' . urlencode($token) : 'dashboard.php',
+        'page_title' => $notebook['title'],
+        'show_logout' => false
+    ];
+    include 'includes/navbar.php';
+    ?>
 
     <script type="application/json" id="vocab-data">
         <?= json_encode($all_vocabs, JSON_UNESCAPED_UNICODE) ?>

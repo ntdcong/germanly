@@ -219,17 +219,15 @@
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-light shadow-sm">
-        <div class="container">
-            <a class="navbar-brand" href="dashboard.php">
-                <i class="bi bi-arrow-left-circle"></i>
-                <span>Quay lại</span>
-            </a>
-            <span class="navbar-text text-truncate fw-medium">
-                Hướng dẫn TTS
-            </span>
-        </div>
-    </nav>
+    <?php
+    $navbar_config = [
+        'type' => 'simple',
+        'back_link' => 'dashboard.php',
+        'page_title' => 'Hướng dẫn TTS',
+        'show_logout' => false
+    ];
+    include 'includes/navbar.php';
+    ?>
 
     <div class="main-content">
         <div class="guide-container">

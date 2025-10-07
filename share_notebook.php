@@ -110,15 +110,22 @@ if ($share_code) {
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 </head>
 <body>
-<nav class="navbar navbar-light sticky-top bg-white shadow-sm">
-  <div class="container">
-    <a class="navbar-brand" href="dashboard.php"><i class="bi bi-arrow-left"></i> Quay lại</a>
-    <div class="d-flex align-items-center gap-2">
-      <span class="badge <?= $is_public ? 'bg-success' : 'bg-secondary' ?>"><?= $is_public ? 'ĐANG CÔNG KHAI' : 'ĐANG ẨN' ?></span>
-      <span class="navbar-text text-truncate" title="<?= htmlspecialchars($notebook['title']) ?>">Chia sẻ: <?= htmlspecialchars($notebook['title']) ?></span>
-    </div>
+<?php
+$navbar_config = [
+    'type' => 'minimal',
+    'back_link' => 'dashboard.php',
+    'show_brand' => false,
+    'show_logout' => false,
+    'extra_class' => 'sticky-top bg-white'
+];
+include 'includes/navbar.php';
+?>
+<div class="container py-2">
+  <div class="d-flex align-items-center gap-2">
+    <span class="badge <?= $is_public ? 'bg-success' : 'bg-secondary' ?>"><?= $is_public ? 'ĐANG CÔNG KHAI' : 'ĐANG ẨN' ?></span>
+    <span class="text-truncate" title="<?= htmlspecialchars($notebook['title']) ?>">Chia sẻ: <strong><?= htmlspecialchars($notebook['title']) ?></strong></span>
   </div>
-</nav>
+</div>
 
 <div class="container py-4">
   <div class="row justify-content-center g-3">

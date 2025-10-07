@@ -1,0 +1,30 @@
+{
+  "site": {
+    "name": "GERMANLY",
+    "description": "Ứng dụng học tiếng Đức với Flashcard",
+    "maintenance_mode": false,
+    "registration_enabled": true,
+    "max_users": 10000,
+    "max_notebooks_per_user": 100
+  },
+  "features": {
+    "ai_tools_enabled": true,
+    "public_notebooks_enabled": true,
+    "excel_import_enabled": true,
+    "gender_practice_enabled": true,
+    "quiz_mode_enabled": true
+  },
+  "notifications": {
+    "email_enabled": false,
+    "welcome_message": "Chào mừng bạn đến với GERMANLY! Hãy bắt đầu hành trình học tiếng Đức của bạn."
+  },
+  "security": {
+    "session_timeout": 3600,
+    "max_login_attempts": 5,
+    "password_min_length": 6
+  },
+  "analytics": {
+    "track_user_activity": true,
+    "anonymous_statistics": true
+  }
+}

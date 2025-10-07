@@ -468,14 +468,17 @@ if (isset($_SESSION['data_preview'])) {
     </style>
 </head>
 <body>
-<nav class="navbar navbar-light bg-light">
-    <div class="container">
-        <a class="back-link" href="dashboard.php"><i class="bi bi-arrow-left"></i> Quay lại Sổ tay</a>
-        <span class="navbar-text text-truncate">
-            Đang import cho sổ tay: <strong><?= htmlspecialchars($notebook['title']) ?></strong>
-        </span>
-    </div>
-</nav>
+<?php
+$navbar_config = [
+    'type' => 'minimal',
+    'back_link' => 'dashboard.php',
+    'page_title' => 'Import: ' . $notebook['title'],
+    'show_brand' => false,
+    'show_logout' => false,
+    'extra_class' => 'bg-light'
+];
+include 'includes/navbar.php';
+?>
 
 <div class="container">
     <div class="card">

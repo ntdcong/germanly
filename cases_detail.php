@@ -14,58 +14,69 @@ if (!isset($_SESSION['user_id'])) {
     <title>Học Biến Cách Chi Tiết - DeutschGo</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link href="assets/css/dashboard.css" rel="stylesheet">
     <style>
         :root {
-            --primary-gradient: linear-gradient(to right, rgb(90, 97, 229), rgb(123, 244, 224));
             --nominativ-color: #3498db;
             --akkusativ-color: #e74c3c;
             --dativ-color: #2ecc71;
             --genitiv-color: #f39c12;
-            --card-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         }
         
-        .navbar { 
-            background: var(--primary-gradient); 
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); 
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
         
-        .navbar-brand { 
-            font-weight: bold; 
-            font-size: 1.5rem; 
-            color: rgb(255, 255, 255); 
+        .main-wrapper {
+            background: #f8f9fa;
+            min-height: calc(100vh - 80px);
+            margin-top: 0;
+            border-radius: 0;
         }
         
         .case-header {
-            padding: 20px;
-            border-radius: 10px;
+            padding: 1.25rem;
+            border-radius: 12px;
             color: white;
-            margin-bottom: 20px;
-            font-weight: bold;
+            margin-bottom: 1.5rem;
+            font-weight: 700;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         }
         
-        .nominativ-bg { background-color: var(--nominativ-color); }
-        .akkusativ-bg { background-color: var(--akkusativ-color); }
-        .dativ-bg { background-color: var(--dativ-color); }
-        .genitiv-bg { background-color: var(--genitiv-color); }
+        .case-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+        
+        .nominativ-bg { background: linear-gradient(135deg, var(--nominativ-color), #5dade2); }
+        .akkusativ-bg { background: linear-gradient(135deg, var(--akkusativ-color), #ec7063); }
+        .dativ-bg { background: linear-gradient(135deg, var(--dativ-color), #58d68d); }
+        .genitiv-bg { background: linear-gradient(135deg, var(--genitiv-color), #f8c471); }
         
         .case-card {
             transition: all 0.3s ease;
             border: none;
-            box-shadow: var(--card-shadow);
-            margin-bottom: 20px;
-            border-radius: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            margin-bottom: 1.5rem;
+            border-radius: 12px;
+            overflow: hidden;
         }
         
         .case-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+        }
+        
+        .case-card .card-header {
+            font-weight: 700;
+            border-bottom: 2px solid rgba(0, 0, 0, 0.05);
         }
         
         .example-box {
             background: #f8f9fa;
             border-left: 4px solid;
-            padding: 15px;
-            margin: 10px 0;
+            padding: 1rem;
+            margin: 0.75rem 0;
             border-radius: 0 8px 8px 0;
         }
         
@@ -76,9 +87,9 @@ if (!isset($_SESSION['user_id'])) {
         
         .verb-list, .preposition-list {
             background: #e8f4fc;
-            padding: 15px;
+            padding: 1rem;
             border-radius: 8px;
-            margin: 10px 0;
+            margin: 0.75rem 0;
         }
         
         .sticky-sidebar {
@@ -86,41 +97,100 @@ if (!isset($_SESSION['user_id'])) {
             top: 20px;
         }
         
-        .progress-container {
-            margin: 20px 0;
-        }
-        
         .usage-rule {
             background: #fff3cd;
             border-left: 4px solid #ffc107;
-            padding: 15px;
+            padding: 1rem;
             border-radius: 0 8px 8px 0;
-            margin: 15px 0;
+            margin: 1rem 0;
+        }
+        
+        .list-group-item {
+            border: none;
+            border-left: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .list-group-item:hover {
+            background: #f8f9fa;
+            border-left-color: #667eea;
+            padding-left: 1.25rem;
+        }
+        
+        .list-group-item.active {
+            background: #667eea;
+            border-left-color: #667eea;
+            color: white;
+        }
+        
+        .accordion-button:not(.collapsed) {
+            background-color: #ffc107;
+            color: #000;
+        }
+        
+        @media (max-width: 991px) {
+            .sticky-sidebar {
+                position: static;
+                margin-bottom: 2rem;
+            }
         }
         
         @media (max-width: 768px) {
             .case-header {
-                font-size: 1.2rem;
-                padding: 15px;
+                padding: 1rem;
+            }
+            
+            .case-header h2 {
+                font-size: 1.25rem;
+            }
+            
+            .table-responsive {
+                font-size: 0.85rem;
+            }
+            
+            .example-box {
+                padding: 0.75rem;
+                font-size: 0.9rem;
+            }
+            
+            .verb-list, .preposition-list {
+                padding: 0.75rem;
+                font-size: 0.9rem;
+            }
+            
+            .usage-rule {
+                padding: 0.75rem;
+                font-size: 0.9rem;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .case-header h2 {
+                font-size: 1.1rem;
+            }
+            
+            .card-header h3 {
+                font-size: 1.1rem;
+            }
+            
+            .card-body h4 {
+                font-size: 1rem;
             }
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg">
-        <div class="container">
-            <a class="navbar-brand" href="home.php">
-                </i> GERMANLY
-            </a>
-            <div class="d-flex">
-                <a href="logout.php" class="btn btn-outline-light">
-                    <i class="bi bi-box-arrow-right"></i> Đăng xuất
-                </a>
-            </div>
-        </div>
-    </nav>
+    <?php
+    $navbar_config = [
+        'type' => 'main',
+        'show_logout' => true,
+        'brand_link' => 'home.php'
+    ];
+    include 'includes/navbar.php';
+    ?>
 
-    <div class="container mt-4">
+    <div class="main-wrapper">
+    <div class="container py-4">
         <div class="row">
             <!-- Sidebar Navigation -->
             <div class="col-lg-3 mb-4">
@@ -779,6 +849,7 @@ if (!isset($_SESSION['user_id'])) {
                 </div>
             </div>
         </div>
+    </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

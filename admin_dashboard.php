@@ -12,6 +12,44 @@ $user_id = $_SESSION['user_id'];
 $message = '';
 $error = '';
 
+// Load site settings
+$configFile = 'assets/config/site_settings.json';
+if (!file_exists($configFile)) {
+    mkdir(dirname($configFile), 0755, true);
+    $defaultSettings = [
+        'site' => [
+            'name' => 'GERMANLY',
+            'description' => 'Ứng dụng học tiếng Đức với Flashcard',
+            'maintenance_mode' => false,
+            'registration_enabled' => true,
+            'max_users' => 10000,
+            'max_notebooks_per_user' => 100
+        ],
+        'features' => [
+            'ai_tools_enabled' => true,
+            'public_notebooks_enabled' => true,
+            'excel_import_enabled' => true,
+            'gender_practice_enabled' => true,
+            'quiz_mode_enabled' => true
+        ],
+        'notifications' => [
+            'email_enabled' => false,
+            'welcome_message' => 'Chào mừng bạn đến với GERMANLY!'
+        ],
+        'security' => [
+            'session_timeout' => 3600,
+            'max_login_attempts' => 5,
+            'password_min_length' => 6
+        ],
+        'analytics' => [
+            'track_user_activity' => true,
+            'anonymous_statistics' => true
+        ]
+    ];
+    file_put_contents($configFile, json_encode($defaultSettings, JSON_PRETTY_PRINT));
+}
+$siteSettings = json_decode(file_get_contents($configFile), true);
+
 // Hàm ghi log hệ thống
 function writeSystemLog($message, $type = 'info') {
     $logDir = 'assets/logs/';
@@ -26,9 +64,202 @@ function writeSystemLog($message, $type = 'info') {
     file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX);
 }
 
+// Hàm lưu site settings
+function saveSiteSettings($settings) {
+    $configFile = 'assets/config/site_settings.json';
+    file_put_contents($configFile, json_encode($settings, JSON_PRETTY_PRINT));
+    writeSystemLog('Site settings updated', 'info');
+}
+
+// Hàm xóa cache
+function clearCache() {
+    $cacheDir = 'assets/cache/';
+    if (is_dir($cacheDir)) {
+        $files = glob($cacheDir . '*');
+        foreach ($files as $file) {
+            if (is_file($file)) {
+                unlink($file);
+            }
+        }
+        return count($files);
+    }
+    return 0;
+}
+
+// Hàm dọn dẹp logs cũ
+function cleanupOldLogs($days = 30) {
+    $logDir = 'assets/logs/';
+    if (!is_dir($logDir)) return 0;
+    
+    $count = 0;
+    $files = glob($logDir . '*.log');
+    $cutoff = time() - ($days * 24 * 60 * 60);
+    
+    foreach ($files as $file) {
+        if (filemtime($file) < $cutoff) {
+            unlink($file);
+            $count++;
+        }
+    }
+    return $count;
+}
+
+// Hàm lấy thống kê chi tiết
+function getDetailedStats($pdo) {
+    $stats = [];
+    
+    // Thống kê theo thời gian
+    $stats['users_today'] = $pdo->query('SELECT COUNT(*) FROM users WHERE DATE(created_at) = CURDATE()')->fetchColumn();
+    $stats['users_this_week'] = $pdo->query('SELECT COUNT(*) FROM users WHERE YEARWEEK(created_at) = YEARWEEK(NOW())')->fetchColumn();
+    $stats['users_this_month'] = $pdo->query('SELECT COUNT(*) FROM users WHERE YEAR(created_at) = YEAR(NOW()) AND MONTH(created_at) = MONTH(NOW())')->fetchColumn();
+    
+    $stats['notebooks_today'] = $pdo->query('SELECT COUNT(*) FROM notebooks WHERE DATE(created_at) = CURDATE()')->fetchColumn();
+    $stats['notebooks_this_week'] = $pdo->query('SELECT COUNT(*) FROM notebooks WHERE YEARWEEK(created_at) = YEARWEEK(NOW())')->fetchColumn();
+    
+    $stats['vocab_today'] = $pdo->query('SELECT COUNT(*) FROM vocabularies WHERE DATE(created_at) = CURDATE()')->fetchColumn();
+    $stats['vocab_this_week'] = $pdo->query('SELECT COUNT(*) FROM vocabularies WHERE YEARWEEK(created_at) = YEARWEEK(NOW())')->fetchColumn();
+    
+    // Thống kê usage
+    $stats['avg_notebooks_per_user'] = $pdo->query('SELECT AVG(nb_count) FROM (SELECT COUNT(*) as nb_count FROM notebooks GROUP BY user_id) as counts')->fetchColumn() ?: 0;
+    $stats['avg_vocab_per_notebook'] = $pdo->query('SELECT AVG(v_count) FROM (SELECT COUNT(*) as v_count FROM vocabularies GROUP BY notebook_id) as counts')->fetchColumn() ?: 0;
+    
+    return $stats;
+}
+
+// Include helper functions
+require_once 'includes/admin_helper.php';
+
 // Xử lý các hành động quản lý người dùng
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $action = $_POST['action'];
+
+    // Cập nhật cài đặt
+    if ($action === 'update_settings') {
+        try {
+            // Cập nhật site settings
+            $siteSettings['site']['name'] = trim($_POST['site_name'] ?? $siteSettings['site']['name']);
+            $siteSettings['site']['description'] = trim($_POST['site_description'] ?? $siteSettings['site']['description']);
+            $siteSettings['site']['maintenance_mode'] = isset($_POST['maintenance_mode']);
+            $siteSettings['site']['registration_enabled'] = isset($_POST['registration_enabled']);
+            $siteSettings['site']['max_users'] = (int)($_POST['max_users'] ?? $siteSettings['site']['max_users']);
+            $siteSettings['site']['max_notebooks_per_user'] = (int)($_POST['max_notebooks_per_user'] ?? $siteSettings['site']['max_notebooks_per_user']);
+            
+            // Features
+            $siteSettings['features']['ai_tools_enabled'] = isset($_POST['ai_tools_enabled']);
+            $siteSettings['features']['public_notebooks_enabled'] = isset($_POST['public_notebooks_enabled']);
+            $siteSettings['features']['excel_import_enabled'] = isset($_POST['excel_import_enabled']);
+            $siteSettings['features']['gender_practice_enabled'] = isset($_POST['gender_practice_enabled']);
+            $siteSettings['features']['quiz_mode_enabled'] = isset($_POST['quiz_mode_enabled']);
+            
+            // Notifications
+            $siteSettings['notifications']['email_enabled'] = isset($_POST['email_enabled']);
+            $siteSettings['notifications']['welcome_message'] = trim($_POST['welcome_message'] ?? $siteSettings['notifications']['welcome_message']);
+            
+            // Security
+            $siteSettings['security']['session_timeout'] = (int)($_POST['session_timeout'] ?? $siteSettings['security']['session_timeout']);
+            $siteSettings['security']['max_login_attempts'] = (int)($_POST['max_login_attempts'] ?? $siteSettings['security']['max_login_attempts']);
+            $siteSettings['security']['password_min_length'] = (int)($_POST['password_min_length'] ?? $siteSettings['security']['password_min_length']);
+            
+            saveSiteSettings($siteSettings);
+            $message = 'Đã lưu cài đặt thành công!';
+        } catch (Exception $e) {
+            $error = 'Lỗi khi lưu cài đặt: ' . $e->getMessage();
+        }
+    }
+    
+    // Xóa cache
+    if ($action === 'clear_cache') {
+        $count = clearCache();
+        $message = "Đã xóa $count file cache!";
+        writeSystemLog("Cache cleared: $count files", 'info');
+    }
+    
+    // Dọn dẹp logs cũ
+    if ($action === 'cleanup_logs') {
+        $days = (int)($_POST['days'] ?? 30);
+        $count = cleanupOldLogs($days);
+        $message = "Đã xóa $count file log cũ hơn $days ngày!";
+        writeSystemLog("Old logs cleaned up: $count files", 'info');
+    }
+    
+    // Optimize database
+    if ($action === 'optimize_db') {
+        $result = optimizeDatabase($pdo);
+        if ($result) {
+            $message = 'Đã tối ưu hóa ' . count($result) . ' bảng trong database!';
+        } else {
+            $error = 'Không thể tối ưu hóa database!';
+        }
+    }
+    
+    // Export users to CSV
+    if ($action === 'export_users') {
+        $usersData = $pdo->query('SELECT id, email, role, created_at FROM users ORDER BY created_at DESC')->fetchAll(PDO::FETCH_ASSOC);
+        $data = array_map(function($user) {
+            return [
+                $user['id'],
+                $user['email'],
+                $user['role'],
+                $user['created_at']
+            ];
+        }, $usersData);
+        exportToCSV($data, 'users_export_' . date('Y-m-d') . '.csv', ['ID', 'Email', 'Role', 'Created At']);
+    }
+    
+    // Export notebooks to CSV
+    if ($action === 'export_notebooks') {
+        $notebooksData = $pdo->query('
+            SELECT n.id, n.title, n.description, u.email, n.created_at, 
+                   COUNT(v.id) as vocab_count
+            FROM notebooks n
+            JOIN users u ON n.user_id = u.id
+            LEFT JOIN vocabularies v ON n.id = v.notebook_id
+            GROUP BY n.id
+            ORDER BY n.created_at DESC
+        ')->fetchAll(PDO::FETCH_ASSOC);
+        
+        $data = array_map(function($nb) {
+            return [
+                $nb['id'],
+                $nb['title'],
+                $nb['description'],
+                $nb['email'],
+                $nb['vocab_count'],
+                $nb['created_at']
+            ];
+        }, $notebooksData);
+        exportToCSV($data, 'notebooks_export_' . date('Y-m-d') . '.csv', ['ID', 'Title', 'Description', 'Owner', 'Vocab Count', 'Created At']);
+    }
+    
+    // Download backup
+    if ($action === 'download_backup') {
+        $filename = $_POST['backup_file'] ?? '';
+        $filepath = 'assets/backups/' . basename($filename);
+        
+        if (file_exists($filepath)) {
+            header('Content-Type: application/octet-stream');
+            header('Content-Disposition: attachment; filename="' . basename($filepath) . '"');
+            header('Content-Length: ' . filesize($filepath));
+            readfile($filepath);
+            exit;
+        } else {
+            $error = 'File backup không tồn tại!';
+        }
+    }
+    
+    // Delete backup
+    if ($action === 'delete_backup') {
+        $filename = $_POST['backup_file'] ?? '';
+        $filepath = 'assets/backups/' . basename($filename);
+        
+        if (file_exists($filepath)) {
+            unlink($filepath);
+            $message = 'Đã xóa file backup: ' . basename($filename);
+            writeSystemLog('Backup deleted: ' . basename($filename), 'info');
+        } else {
+            $error = 'File backup không tồn tại!';
+        }
+    }
 
     // Xử lý sao lưu dữ liệu
     if ($action === 'create_backup') {
@@ -212,6 +443,31 @@ $statsStmt = $pdo->query('
 ');
 $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
 
+// Lấy thống kê chi tiết
+$detailedStats = getDetailedStats($pdo);
+
+// Lấy activity chart data
+$activityData = getActivityChartData($pdo, 7);
+
+// Lấy system info
+$systemInfo = getSystemInfo();
+
+// Lấy danh sách backups
+$backupsList = getBackups();
+
+// Lấy database size
+$dbSize = getDatabaseSize($pdo);
+
+// Lấy directory sizes
+$backupDirSize = getDirectorySize('assets/backups/');
+$logDirSize = getDirectorySize('assets/logs/');
+
+// Security check
+$securityIssues = securityCheck();
+
+// User activity summary
+$userActivity = getUserActivitySummary($pdo);
+
 // Top 5 người dùng tích cực (có thể giới hạn thời gian nếu cần)
 $topUsersStmt = $pdo->query('
     SELECT u.email, COUNT(v.id) as vocab_count 
@@ -292,6 +548,24 @@ $all_notebooks = $allNotebooksStmt->fetchAll(PDO::FETCH_ASSOC);
                     <a class="nav-link" href="#system" data-tab="system">
                         <i class="bi bi-gear"></i>
                         <span>Hệ thống</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#analytics" data-tab="analytics">
+                        <i class="bi bi-graph-up"></i>
+                        <span>Thống kê</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#settings" data-tab="settings">
+                        <i class="bi bi-sliders"></i>
+                        <span>Cài đặt</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#backup" data-tab="backup">
+                        <i class="bi bi-shield-check"></i>
+                        <span>Sao lưu & Bảo mật</span>
                     </a>
                 </li>
 
@@ -683,6 +957,509 @@ $all_notebooks = $allNotebooksStmt->fetchAll(PDO::FETCH_ASSOC);
                                         </tr>
                                     </tbody>
                                 </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analytics Tab -->
+        <div class="tab-content" id="analytics">
+            <div class="row">
+                <!-- Detailed Stats Cards -->
+                <div class="col-md-4 mb-4">
+                    <div class="content-card">
+                        <div class="card-header">
+                            <h6 class="card-title"><i class="bi bi-person-plus"></i> Người dùng mới</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="stat-group">
+                                <div class="stat-item">
+                                    <span class="stat-label">Hôm nay:</span>
+                                    <span class="stat-value text-primary"><?= (int)$detailedStats['users_today'] ?></span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Tuần này:</span>
+                                    <span class="stat-value text-info"><?= (int)$detailedStats['users_this_week'] ?></span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Tháng này:</span>
+                                    <span class="stat-value text-success"><?= (int)$detailedStats['users_this_month'] ?></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 mb-4">
+                    <div class="content-card">
+                        <div class="card-header">
+                            <h6 class="card-title"><i class="bi bi-journal-bookmark"></i> Sổ tay mới</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="stat-group">
+                                <div class="stat-item">
+                                    <span class="stat-label">Hôm nay:</span>
+                                    <span class="stat-value text-primary"><?= (int)$detailedStats['notebooks_today'] ?></span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Tuần này:</span>
+                                    <span class="stat-value text-info"><?= (int)$detailedStats['notebooks_this_week'] ?></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 mb-4">
+                    <div class="content-card">
+                        <div class="card-header">
+                            <h6 class="card-title"><i class="bi bi-card-text"></i> Từ vựng mới</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="stat-group">
+                                <div class="stat-item">
+                                    <span class="stat-label">Hôm nay:</span>
+                                    <span class="stat-value text-primary"><?= (int)$detailedStats['vocab_today'] ?></span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Tuần này:</span>
+                                    <span class="stat-value text-info"><?= (int)$detailedStats['vocab_this_week'] ?></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-lg-8 mb-4">
+                    <div class="content-card">
+                        <div class="card-header">
+                            <h6 class="card-title"><i class="bi bi-graph-up"></i> Hoạt động 7 ngày gần đây</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-wrapper">
+                                <table class="custom-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Ngày</th>
+                                            <th>Người dùng</th>
+                                            <th>Sổ tay</th>
+                                            <th>Từ vựng</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($activityData as $day): ?>
+                                        <tr>
+                                            <td><strong><?= $day['date'] ?></strong></td>
+                                            <td><span class="badge bg-primary"><?= $day['users'] ?></span></td>
+                                            <td><span class="badge bg-info"><?= $day['notebooks'] ?></span></td>
+                                            <td><span class="badge bg-success"><?= $day['vocab'] ?></span></td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4 mb-4">
+                    <div class="content-card">
+                        <div class="card-header">
+                            <h6 class="card-title"><i class="bi bi-speedometer2"></i> Usage Metrics</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="stat-group">
+                                <div class="stat-item">
+                                    <span class="stat-label">TB Sổ tay/User:</span>
+                                    <span class="stat-value text-primary"><?= number_format($detailedStats['avg_notebooks_per_user'], 1) ?></span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">TB Từ/Sổ tay:</span>
+                                    <span class="stat-value text-info"><?= number_format($detailedStats['avg_vocab_per_notebook'], 1) ?></span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Active Users:</span>
+                                    <span class="stat-value text-success"><?= (int)$userActivity['active_users'] ?></span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Inactive Users:</span>
+                                    <span class="stat-value text-warning"><?= (int)$userActivity['inactive_users'] ?></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div class="tab-content" id="settings">
+            <form method="post" action="">
+                <input type="hidden" name="action" value="update_settings">
+                
+                <div class="row">
+                    <div class="col-lg-6 mb-4">
+                        <div class="content-card">
+                            <div class="card-header">
+                                <h6 class="card-title"><i class="bi bi-gear"></i> Cài đặt chung</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label">Tên website</label>
+                                    <input type="text" class="form-control" name="site_name" value="<?= htmlspecialchars($siteSettings['site']['name']) ?>">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Mô tả</label>
+                                    <textarea class="form-control" name="site_description" rows="2"><?= htmlspecialchars($siteSettings['site']['description']) ?></textarea>
+                                </div>
+                                <div class="mb-3 form-check">
+                                    <input type="checkbox" class="form-check-input" name="maintenance_mode" id="maintenance_mode" <?= $siteSettings['site']['maintenance_mode'] ? 'checked' : '' ?>>
+                                    <label class="form-check-label" for="maintenance_mode">
+                                        <strong>Chế độ bảo trì</strong> - Chỉ admin có thể truy cập
+                                    </label>
+                                </div>
+                                <div class="mb-3 form-check">
+                                    <input type="checkbox" class="form-check-input" name="registration_enabled" id="registration_enabled" <?= $siteSettings['site']['registration_enabled'] ? 'checked' : '' ?>>
+                                    <label class="form-check-label" for="registration_enabled">
+                                        <strong>Cho phép đăng ký</strong> - Người dùng mới có thể đăng ký
+                                    </label>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Số user tối đa</label>
+                                        <input type="number" class="form-control" name="max_users" value="<?= (int)$siteSettings['site']['max_users'] ?>">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Sổ tay tối đa/user</label>
+                                        <input type="number" class="form-control" name="max_notebooks_per_user" value="<?= (int)$siteSettings['site']['max_notebooks_per_user'] ?>">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-6 mb-4">
+                        <div class="content-card">
+                            <div class="card-header">
+                                <h6 class="card-title"><i class="bi bi-toggles"></i> Tính năng</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3 form-check">
+                                    <input type="checkbox" class="form-check-input" name="ai_tools_enabled" id="ai_tools" <?= $siteSettings['features']['ai_tools_enabled'] ? 'checked' : '' ?>>
+                                    <label class="form-check-label" for="ai_tools">
+                                        <strong>AI Tools</strong> - Công cụ AI hỗ trợ học tập
+                                    </label>
+                                </div>
+                                <div class="mb-3 form-check">
+                                    <input type="checkbox" class="form-check-input" name="public_notebooks_enabled" id="public_notebooks" <?= $siteSettings['features']['public_notebooks_enabled'] ? 'checked' : '' ?>>
+                                    <label class="form-check-label" for="public_notebooks">
+                                        <strong>Public Notebooks</strong> - Chia sẻ sổ tay công khai
+                                    </label>
+                                </div>
+                                <div class="mb-3 form-check">
+                                    <input type="checkbox" class="form-check-input" name="excel_import_enabled" id="excel_import" <?= $siteSettings['features']['excel_import_enabled'] ? 'checked' : '' ?>>
+                                    <label class="form-check-label" for="excel_import">
+                                        <strong>Excel Import</strong> - Import từ file Excel
+                                    </label>
+                                </div>
+                                <div class="mb-3 form-check">
+                                    <input type="checkbox" class="form-check-input" name="gender_practice_enabled" id="gender_practice" <?= $siteSettings['features']['gender_practice_enabled'] ? 'checked' : '' ?>>
+                                    <label class="form-check-label" for="gender_practice">
+                                        <strong>Gender Practice</strong> - Luyện giống từ
+                                    </label>
+                                </div>
+                                <div class="mb-3 form-check">
+                                    <input type="checkbox" class="form-check-input" name="quiz_mode_enabled" id="quiz_mode" <?= $siteSettings['features']['quiz_mode_enabled'] ? 'checked' : '' ?>>
+                                    <label class="form-check-label" for="quiz_mode">
+                                        <strong>Quiz Mode</strong> - Chế độ quiz/kiểm tra
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-lg-6 mb-4">
+                        <div class="content-card">
+                            <div class="card-header">
+                                <h6 class="card-title"><i class="bi bi-bell"></i> Thông báo</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3 form-check">
+                                    <input type="checkbox" class="form-check-input" name="email_enabled" id="email_enabled" <?= $siteSettings['notifications']['email_enabled'] ? 'checked' : '' ?>>
+                                    <label class="form-check-label" for="email_enabled">
+                                        <strong>Email</strong> - Gửi email thông báo
+                                    </label>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Welcome Message</label>
+                                    <textarea class="form-control" name="welcome_message" rows="3"><?= htmlspecialchars($siteSettings['notifications']['welcome_message']) ?></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-6 mb-4">
+                        <div class="content-card">
+                            <div class="card-header">
+                                <h6 class="card-title"><i class="bi bi-shield-lock"></i> Bảo mật</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label">Session Timeout (giây)</label>
+                                    <input type="number" class="form-control" name="session_timeout" value="<?= (int)$siteSettings['security']['session_timeout'] ?>">
+                                    <small class="text-muted">Thời gian hết hạn phiên đăng nhập (3600 = 1 giờ)</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Max Login Attempts</label>
+                                    <input type="number" class="form-control" name="max_login_attempts" value="<?= (int)$siteSettings['security']['max_login_attempts'] ?>">
+                                    <small class="text-muted">Số lần đăng nhập sai tối đa</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Password Min Length</label>
+                                    <input type="number" class="form-control" name="password_min_length" value="<?= (int)$siteSettings['security']['password_min_length'] ?>">
+                                    <small class="text-muted">Độ dài mật khẩu tối thiểu</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-12">
+                        <button type="submit" class="action-btn btn-primary-solid">
+                            <i class="bi bi-save"></i> Lưu cài đặt
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Backup & Security Tab -->
+        <div class="tab-content" id="backup">
+            <div class="row">
+                <div class="col-lg-8 mb-4">
+                    <div class="content-card">
+                        <div class="card-header">
+                            <h6 class="card-title"><i class="bi bi-database"></i> Quản lý Backup</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <p class="mb-1">Tạo backup database và download về máy</p>
+                                    <small class="text-muted">Database size: <?= formatBytes($dbSize) ?></small>
+                                </div>
+                                <form method="post" action="" style="display: inline;">
+                                    <input type="hidden" name="action" value="create_backup">
+                                    <button type="submit" class="action-btn btn-primary-solid">
+                                        <i class="bi bi-download"></i> Tạo Backup
+                                    </button>
+                                </form>
+                            </div>
+
+                            <?php if (empty($backupsList)): ?>
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle"></i> Chưa có backup nào. Hãy tạo backup đầu tiên!
+                                </div>
+                            <?php else: ?>
+                                <div class="table-wrapper">
+                                    <table class="custom-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Tên file</th>
+                                                <th>Kích thước</th>
+                                                <th>Ngày tạo</th>
+                                                <th>Hành động</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($backupsList as $backup): ?>
+                                            <tr>
+                                                <td><?= htmlspecialchars($backup['name']) ?></td>
+                                                <td><?= formatBytes($backup['size']) ?></td>
+                                                <td><?= date('d/m/Y H:i', $backup['date']) ?></td>
+                                                <td>
+                                                    <form method="post" action="" style="display: inline;" class="me-2">
+                                                        <input type="hidden" name="action" value="download_backup">
+                                                        <input type="hidden" name="backup_file" value="<?= htmlspecialchars($backup['name']) ?>">
+                                                        <button type="submit" class="action-btn btn-primary-outline btn-sm">
+                                                            <i class="bi bi-download"></i> Download
+                                                        </button>
+                                                    </form>
+                                                    <form method="post" action="" style="display: inline;" onsubmit="return confirm('Xóa backup này?')">
+                                                        <input type="hidden" name="action" value="delete_backup">
+                                                        <input type="hidden" name="backup_file" value="<?= htmlspecialchars($backup['name']) ?>">
+                                                        <button type="submit" class="action-btn btn-danger-outline btn-sm">
+                                                            <i class="bi bi-trash"></i> Xóa
+                                                        </button>
+                                                    </form>
+                                                </td>
+                                            </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4 mb-4">
+                    <div class="content-card">
+                        <div class="card-header">
+                            <h6 class="card-title"><i class="bi bi-hdd"></i> Storage Info</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="stat-group">
+                                <div class="stat-item">
+                                    <span class="stat-label">Database:</span>
+                                    <span class="stat-value"><?= formatBytes($dbSize) ?></span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Backups:</span>
+                                    <span class="stat-value"><?= formatBytes($backupDirSize) ?></span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Logs:</span>
+                                    <span class="stat-value"><?= formatBytes($logDirSize) ?></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="content-card mt-3">
+                        <div class="card-header">
+                            <h6 class="card-title"><i class="bi bi-tools"></i> Maintenance</h6>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" action="" class="mb-2">
+                                <input type="hidden" name="action" value="clear_cache">
+                                <button type="submit" class="action-btn btn-secondary-solid w-100">
+                                    <i class="bi bi-trash"></i> Xóa Cache
+                                </button>
+                            </form>
+                            <form method="post" action="" class="mb-2">
+                                <input type="hidden" name="action" value="cleanup_logs">
+                                <input type="hidden" name="days" value="30">
+                                <button type="submit" class="action-btn btn-secondary-solid w-100">
+                                    <i class="bi bi-file-text"></i> Dọn Logs Cũ
+                                </button>
+                            </form>
+                            <form method="post" action="">
+                                <input type="hidden" name="action" value="optimize_db">
+                                <button type="submit" class="action-btn btn-success-solid w-100">
+                                    <i class="bi bi-speedometer"></i> Optimize DB
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-lg-6 mb-4">
+                    <div class="content-card">
+                        <div class="card-header">
+                            <h6 class="card-title"><i class="bi bi-shield-exclamation"></i> Security Check</h6>
+                        </div>
+                        <div class="card-body">
+                            <?php if (empty($securityIssues)): ?>
+                                <div class="alert alert-success">
+                                    <i class="bi bi-check-circle"></i> <strong>Tốt!</strong> Không phát hiện vấn đề bảo mật.
+                                </div>
+                            <?php else: ?>
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-exclamation-triangle"></i> <strong>Cảnh báo!</strong> Phát hiện <?= count($securityIssues) ?> vấn đề:
+                                </div>
+                                <ul class="list-group">
+                                    <?php foreach ($securityIssues as $issue): ?>
+                                        <li class="list-group-item list-group-item-warning">
+                                            <i class="bi bi-x-circle"></i> <?= htmlspecialchars($issue) ?>
+                                        </li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6 mb-4">
+                    <div class="content-card">
+                        <div class="card-header">
+                            <h6 class="card-title"><i class="bi bi-file-earmark-arrow-down"></i> Export Data</h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted mb-3">Export dữ liệu ra file CSV</p>
+                            <form method="post" action="" class="mb-2">
+                                <input type="hidden" name="action" value="export_users">
+                                <button type="submit" class="action-btn btn-primary-solid w-100">
+                                    <i class="bi bi-people"></i> Export Users
+                                </button>
+                            </form>
+                            <form method="post" action="">
+                                <input type="hidden" name="action" value="export_notebooks">
+                                <button type="submit" class="action-btn btn-info-solid w-100">
+                                    <i class="bi bi-journal-bookmark"></i> Export Notebooks
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-12">
+                    <div class="content-card">
+                        <div class="card-header">
+                            <h6 class="card-title"><i class="bi bi-info-circle"></i> System Information</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="stat-group">
+                                        <div class="stat-item">
+                                            <span class="stat-label">PHP Version:</span>
+                                            <span class="stat-value"><?= htmlspecialchars($systemInfo['php_version']) ?></span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-label">Operating System:</span>
+                                            <span class="stat-value"><?= htmlspecialchars($systemInfo['os']) ?></span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-label">Server:</span>
+                                            <span class="stat-value"><?= htmlspecialchars($systemInfo['server_software']) ?></span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-label">Timezone:</span>
+                                            <span class="stat-value"><?= htmlspecialchars($systemInfo['timezone']) ?></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="stat-group">
+                                        <div class="stat-item">
+                                            <span class="stat-label">Max Upload:</span>
+                                            <span class="stat-value"><?= htmlspecialchars($systemInfo['max_upload_size']) ?></span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-label">Max Post:</span>
+                                            <span class="stat-value"><?= htmlspecialchars($systemInfo['max_post_size']) ?></span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-label">Memory Limit:</span>
+                                            <span class="stat-value"><?= htmlspecialchars($systemInfo['memory_limit']) ?></span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-label">Max Execution:</span>
+                                            <span class="stat-value"><?= htmlspecialchars($systemInfo['max_execution_time']) ?>s</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

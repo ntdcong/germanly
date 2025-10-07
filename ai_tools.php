@@ -12,6 +12,33 @@ if (!isset($_SESSION['ai_chat'])) {
     $_SESSION['ai_chat'] = [];
 }
 
+// Tracking usage (lưu vào JSON file, không dùng DB)
+function trackAIUsage($action, $model) {
+    $trackFile = 'assets/config/ai_usage.json';
+    $data = [];
+    
+    if (file_exists($trackFile)) {
+        $data = json_decode(file_get_contents($trackFile), true) ?: [];
+    }
+    
+    $today = date('Y-m-d');
+    if (!isset($data[$today])) {
+        $data[$today] = ['translate' => 0, 'vocabulary' => 0, 'conjugation' => 0, 'chat' => 0, 'models' => []];
+    }
+    
+    $data[$today][$action] = ($data[$today][$action] ?? 0) + 1;
+    $data[$today]['models'][$model] = ($data[$today]['models'][$model] ?? 0) + 1;
+    
+    // Giữ chỉ 30 ngày gần nhất
+    $keys = array_keys($data);
+    if (count($keys) > 30) {
+        arsort($keys);
+        $data = array_intersect_key($data, array_flip(array_slice($keys, 0, 30)));
+    }
+    
+    file_put_contents($trackFile, json_encode($data, JSON_PRETTY_PRINT));
+}
+
 // Biến trạng thái mặc định
 $error = null;
 $result = null;
@@ -203,7 +230,7 @@ Chỉ trả về bản dịch, không giải thích hay thêm văn bản nào kh
 
     public function conjugateVerb($verb, $model = 'llama-3.1-8b-instant')
     {
-        $prompt = "Chia động từ tiếng Đức '{$verb}' ở tất cả các thì (Präsens, Präteritum, Perfekt, Plusquamperfekt, Futur I, Futur II).
+        $prompt = "Chia động từ tiếng Đức '{$verb}' ở tất cả các thì và dạng.
     Trả về JSON thuần tuý, không có ``` hoặc giải thích. Cấu trúc:
     {
     \"verb\": \"{$verb}\",
@@ -220,7 +247,14 @@ Chỉ trả về bản dịch, không giải thích hay thêm văn bản nào kh
         \"Perfekt\": { ... },
         \"Plusquamperfekt\": { ... },
         \"Futur I\": { ... },
-        \"Futur II\": { ... }
+        \"Futur II\": { ... },
+        \"Imperativ\": {
+        \"du\": \"...\",
+        \"ihr\": \"...\",
+        \"Sie\": \"...\"
+        },
+        \"Konjunktiv I\": { ... },
+        \"Konjunktiv II\": { ... }
     }
     }";
         return $this->callAPI($prompt, $model);
@@ -259,10 +293,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
             }
             $response = $groq->translateText($text, $fromLang, $toLang, $model);
             if (isset($response['error'])) {
-                echo json_encode(['ok' => false, 'error' => $response['error']]);
+                echo json_encode(['ok' => false, 'error' => $response['error'], 'retryable' => true]);
                 exit;
             }
             $translated = $response['choices'][0]['message']['content'] ?? '';
+            trackAIUsage('translate', $model);
             echo json_encode([
                 'ok' => true,
                 'input' => $text,
@@ -286,14 +321,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 ['role' => 'system', 'content' => 'Bạn là giáo viên tiếng Đức chuyên nghiệp, trả lời ngắn gọn, rõ ràng, có ví dụ khi cần. Ngôn ngữ trả lời: tiếng Việt (có chèn ví dụ tiếng Đức).'],
             ];
 
-            // Limit chat history to last 2 messages to save tokens
-            $recentMessages = array_slice($_SESSION['ai_chat'], -2);
+            // Limit chat history to last 4 messages to save tokens (tăng lên 4 cho ngu context tốt hơn)
+            $recentMessages = array_slice($_SESSION['ai_chat'], -4);
             foreach ($recentMessages as $m) {
                 $messages[] = ['role' => $m['role'], 'content' => $m['content']];
             }
             $response = $groq->callChat($messages, $model);
             if (isset($response['error'])) {
-                echo json_encode(['ok' => false, 'error' => $response['error']]);
+                echo json_encode(['ok' => false, 'error' => $response['error'], 'retryable' => true]);
                 exit;
             }
             $assistant = $response['choices'][0]['message']['content'] ?? '';
@@ -302,6 +337,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
                 'content' => $assistant,
                 'time' => time(),
             ];
+            trackAIUsage('chat', $model);
             echo json_encode([
                 'ok' => true,
                 'user_html' => parseMarkdown(htmlspecialchars($question)),
@@ -356,6 +392,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($error)) {
                     $data = json_decode($content, true);
 
                     if ($data) {
+                        // Lưu vào session để dùng cho "Lưu vào sổ tay"
+                        $_SESSION['last_vocab_lookup'] = $data;
+                        
                         $html  = "<h4>Từ vựng: {$data['word']}</h4>";
                         $html .= "<ul>";
                         if (!empty($data['meaning'])) $html .= "<li><strong>Nghĩa:</strong> {$data['meaning']}</li>";
@@ -377,6 +416,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($error)) {
                         }
 
                         $result = $html;
+                        trackAIUsage('vocabulary', $model);
                     } else {
                         // fallback nếu vẫn không parse được
                         $result = nl2br(htmlspecialchars($content));
@@ -397,6 +437,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($error)) {
                     if (isset($response['error'])) {
                         $error = $response['error'];
                     } else {
+                        trackAIUsage('conjugation', $model);
                         $content = $response['choices'][0]['message']['content'] ?? '';
                         $content = trim($content);
             
@@ -453,6 +494,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($error)) {
                 if (isset($response['error'])) {
                     $error = $response['error'];
                 } else {
+                    trackAIUsage('translate', $model);
                     $translated = trim($response['choices'][0]['message']['content'] ?? '');
                     $translateInput = htmlspecialchars($text);
                     $translateOutput = htmlspecialchars($translated);
@@ -500,6 +542,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($error)) {
                         'content' => $assistant,
                         'time' => time(),
                     ];
+                    trackAIUsage('chat', $model);
                 }
             } else {
                 $error = 'Vui lòng nhập câu hỏi';
@@ -613,19 +656,19 @@ function parseMarkdown($text)
     <link href="assets/css/ai_tools.css" rel="stylesheet">
 </head>
 <body>
-    <nav class="navbar">
-        <div class="container d-flex justify-content-between align-items-center">
-            <a href="dashboard.php" class="navbar-brand">
-                <i class="bi bi-arrow-left"></i> Germanly
-            </a>
-            <a href="logout.php" class="nav-link">
-                <i class="bi bi-box-arrow-right" style="padding-right:4px;"></i> Đăng xuất
-            </a>
-        </div>
-    </nav>
+    <?php
+    $navbar_config = [
+        'type' => 'minimal',
+        'back_link' => 'dashboard.php',
+        'show_brand' => true,
+        'brand_link' => 'dashboard.php',
+        'show_logout' => true
+    ];
+    include 'includes/navbar.php';
+    ?>
 
     <div class="container">
-        <div class="tabs">
+<div class="tabs">
             <div class="model-picker">
                 <select id="aiModel" class="form-select form-select-sm" style="width:auto; display:inline-block;">
                     <?php foreach ($ALLOWED_MODELS as $k => $label): ?>
@@ -878,6 +921,16 @@ function parseMarkdown($text)
                                     <div class="message-bubble">
                                         <?= parseMarkdown(htmlspecialchars($m['content'])) ?>
                                     </div>
+                                    <?php if ($m['role'] === 'assistant'): ?>
+                                        <div class="message-actions">
+                                            <button type="button" class="action-btn-sm" onclick="copyMessage(this)" title="Sao ch\u00e9p">
+                                                <i class="bi bi-clipboard"></i>
+                                            </button>
+                                            <button type="button" class="action-btn-sm" onclick="regenerateLastResponse()" title="T\u1ea1o l\u1ea1i">
+                                                <i class="bi bi-arrow-clockwise"></i>
+                                            </button>
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -1008,16 +1061,18 @@ function parseMarkdown($text)
 
 
 
-        function showNotification(message) {
+        function showNotification(message, type = 'success') {
             // Simple notification
             const notification = document.createElement('div');
             notification.className = 'notification';
             notification.textContent = message;
+            
+            const bgColor = type === 'error' ? 'var(--danger)' : 'var(--success)';
             notification.style.cssText = `
                 position: fixed;
                 top: 20px;
                 right: 20px;
-                background: var(--success);
+                background: ${bgColor};
                 color: white;
                 padding: 10px 20px;
                 border-radius: 8px;
@@ -1227,6 +1282,14 @@ function parseMarkdown($text)
                                 </div>
                                 <div class="message-content">
                                     <div class="message-bubble">${data.assistant_html}</div>
+                                    <div class="message-actions">
+                                        <button type="button" class="action-btn-sm" onclick="copyMessage(this)" title="Sao chép">
+                                            <i class="bi bi-clipboard"></i>
+                                        </button>
+                                        <button type="button" class="action-btn-sm" onclick="regenerateLastResponse()" title="Tạo lại">
+                                            <i class="bi bi-arrow-clockwise"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             `;
                             chatWindow2.appendChild(assistantMessage);
@@ -1237,6 +1300,157 @@ function parseMarkdown($text)
                 textarea.value = '';
             });
         }
+        
+        // Copy message in chat
+        function copyMessage(button) {
+            const messageContent = button.closest('.message-content').querySelector('.message-bubble').textContent;
+            navigator.clipboard.writeText(messageContent).then(() => {
+                showNotification('Đã sao chép tin nhắn!');
+            });
+        }
+        
+        // Regenerate last response
+        function regenerateLastResponse() {
+            const chatWindow = document.getElementById('chatWindow');
+            const messages = chatWindow.querySelectorAll('.message-wrapper');
+            
+            if (messages.length < 2) return;
+            
+            // Xóa response cuối cùng
+            const lastAssistant = chatWindow.querySelector('.message-wrapper.assistant-message:last-child');
+            if (lastAssistant) {
+                lastAssistant.remove();
+            }
+            
+            // Lấy câu hỏi cuối
+            const lastUserMessage = chatWindow.querySelector('.message-wrapper.user-message:last-child');
+            if (!lastUserMessage) return;
+            
+            const questionText = lastUserMessage.querySelector('.message-bubble').textContent;
+            
+            // Gửi lại câu hỏi
+            const formData = new URLSearchParams({
+                action: 'chat',
+                question: questionText,
+                ajax: '1'
+            });
+            
+            fetch('', { method: 'POST', body: formData })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.ok) {
+                        const assistantMessage = document.createElement('div');
+                        assistantMessage.className = 'message-wrapper assistant-message';
+                        assistantMessage.innerHTML = `
+                            <div class="message-avatar">
+                                <div class="assistant-avatar">
+                                    <i class="bi bi-robot"></i>
+                                </div>
+                            </div>
+                            <div class="message-content">
+                                <div class="message-bubble">${data.assistant_html}</div>
+                                <div class="message-actions">
+                                    <button type="button" class="action-btn-sm" onclick="copyMessage(this)" title="Sao chép">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                    <button type="button" class="action-btn-sm" onclick="regenerateLastResponse()" title="Tạo lại">
+                                        <i class="bi bi-arrow-clockwise"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                        chatWindow.appendChild(assistantMessage);
+                        chatWindow.scrollTop = chatWindow.scrollHeight;
+                    } else {
+                        showNotification('Lỗi: ' + (data.error || 'Không thể tạo lại'), 'error');
+                    }
+                });
+        }
+        
+        // Enhanced error handling with retry
+        function handleAPIError(error, retryCallback) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'alert alert-danger alert-dismissible fade show';
+            errorDiv.innerHTML = `
+                <i class="bi bi-exclamation-triangle"></i>
+                <strong>Lỗi:</strong> ${error}
+                <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="(${retryCallback})()">
+                    <i class="bi bi-arrow-clockwise"></i> Thử lại
+                </button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            // Insert at top of active tab content
+            const activeTab = document.querySelector('.tab-content.active .card');
+            if (activeTab) {
+                activeTab.insertBefore(errorDiv, activeTab.firstChild);
+            }
+        }
+        
+        // Update performTranslate with retry
+        const originalPerformTranslate = performTranslate;
+        performTranslate = function() {
+            const sourceText = document.getElementById('sourceText');
+            const text = sourceText.value.trim();
+
+            if (!text) return;
+
+            const fromLang = document.getElementById('fromLang').value;
+            const toLang = document.getElementById('toLang').value;
+
+            const resultDiv = document.getElementById('translateResult');
+            resultDiv.innerHTML = '<div class="loading"><div class="spinner-border spinner-border-sm me-2"></div>Đang dịch...</div>';
+
+            fetch('', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    action: 'translate',
+                    text: text,
+                    from_lang: fromLang,
+                    to_lang: toLang,
+                    ajax: '1'
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    resultDiv.innerHTML = data.output_html;
+                    updateCharCount('target');
+
+                    if (fromLang === 'auto') {
+                        const detectedLang = document.getElementById('detectedLang');
+                        detectedLang.textContent = 'Ngôn ngữ được phát hiện';
+                    }
+                } else {
+                    const errorMsg = data.error || 'Có lỗi xảy ra';
+                    if (data.retryable) {
+                        resultDiv.innerHTML = `
+                            <div class="alert alert-danger">
+                                <i class="bi bi-exclamation-triangle"></i> ${errorMsg}
+                                <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="performTranslate()">
+                                    <i class="bi bi-arrow-clockwise"></i> Thử lại
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        resultDiv.innerHTML = '<div class="error">' + errorMsg + '</div>';
+                    }
+                }
+            })
+            .catch(error => {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle"></i> Lỗi kết nối
+                        <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="performTranslate()">
+                            <i class="bi bi-arrow-clockwise"></i> Thử lại
+                        </button>
+                    </div>
+                `;
+                console.error('Translation error:', error);
+            });
+        };
     </script>
 </body>
 </html>
+

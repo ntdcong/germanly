@@ -140,16 +140,14 @@ $selected_group = isset($_GET['group']) ? $_GET['group'] : 'all';
 
 <body>
     <!-- Navbar -->
-    <nav class="modern-navbar">
-        <div class="container">
-            <div class="d-flex justify-content-between align-items-center">
-                <a class="navbar-brand" href="home.php">GERMANLY</a>
-                <a href="logout.php" class="logout-btn">
-                    <i class="bi bi-box-arrow-right me-2"></i>Đăng xuất
-                </a>
-            </div>
-        </div>
-    </nav>
+    <?php
+    $navbar_config = [
+        'type' => 'main',
+        'show_logout' => true,
+        'brand_link' => 'home.php'
+    ];
+    include 'includes/navbar.php';
+    ?>
 
     <div class="main-container">
         <div class="container">

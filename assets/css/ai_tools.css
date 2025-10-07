@@ -1,12 +1,11 @@
 :root {
-    --primary: #00d4aa;
+    --primary: #5b67ca;
     --secondary: #f8f9fa;
     --dark: #212529;
     --light: #ffffff;
     --border: #dee2e6;
     --text: #212529;
     --text-secondary: #6c757d;
-    --accent: #58a6ff;
     --success: #28a745;
     --warning: #ffc107;
     --danger: #dc3545;
@@ -21,39 +20,51 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
-    background: var(--light);
+    background: #f4f6fb;
     color: var(--text);
     line-height: 1.6;
     min-height: 100vh;
 }
 
-.navbar {
-    background: var(--light);
-    border-bottom: 1px solid var(--border);
+.navbar, .modern-navbar {
+    background: #5b67ca;
+    border-bottom: none;
     padding: 1rem 0;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .navbar-brand {
-    color: var(--primary) !important;
+    color: white !important;
     font-weight: 700;
     font-size: 1.5rem;
     text-decoration: none;
 }
 
 .navbar-brand:hover {
-    color: var(--primary) !important;
+    color: white !important;
 }
 
 .nav-link {
-    color: var(--text-secondary) !important;
+    color: rgba(255,255,255,0.9) !important;
     text-decoration: none;
     font-weight: 500;
-    transition: color 0.2s;
 }
 
 .nav-link:hover {
-    color: var(--text) !important;
+    color: white !important;
+}
+
+.logout-btn {
+    color: white !important;
+    text-decoration: none;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: 0.4rem;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.logout-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
 }
 
 .container {
@@ -66,11 +77,11 @@ body {
     display: flex;
     justify-content: center;
     margin: 2rem 0;
-    background: var(--light);
-    border-radius: 12px;
+    background: white;
+    border-radius: 0.5rem;
     padding: 0.5rem;
     border: 1px solid var(--border);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     flex-wrap: wrap;
     gap: 0.5rem;
 }
@@ -103,12 +114,12 @@ body {
 
 .tab:hover {
     color: var(--text);
-    background: rgba(0, 212, 170, 0.1);
+    background: rgba(91, 103, 202, 0.1);
 }
 
 .tab.active {
     background: var(--primary);
-    color: var(--light);
+    color: white;
 }
 
 .tab-content {
@@ -187,12 +198,12 @@ table tr:nth-child(even) td {
 
 
 .card {
-    background: var(--light);
+    background: white;
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 0.5rem;
     padding: 2rem;
     margin-bottom: 2rem;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
 .form-group {
@@ -207,31 +218,29 @@ table tr:nth-child(even) td {
 }
 
 .form-control, .form-select {
-    background: var(--light);
-    border: 1px solid var(--border);
+    background: white;
+    border: 1px solid #ced4da;
     color: var(--text);
-    border-radius: 8px;
-    padding: 0.75rem 1rem;
+    border-radius: 0.4rem;
+    padding: 0.6rem 0.9rem;
     font-size: 1rem;
-    transition: all 0.2s;
     width: 100%;
 }
 
 .form-control:focus, .form-select:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.1);
+    box-shadow: 0 0 0 0.15rem rgba(91, 103, 202, 0.15);
 }
 
 .btn {
     background: var(--primary);
-    color: var(--light);
+    color: white;
     border: none;
-    border-radius: 8px;
-    padding: 0.75rem 1.5rem;
+    border-radius: 0.4rem;
+    padding: 0.6rem 1.2rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
@@ -239,25 +248,22 @@ table tr:nth-child(even) td {
 }
 
 .btn:hover {
-    background: #00b894;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 212, 170, 0.3);
+    background: #4a56b8;
 }
 
 .btn-secondary {
-    background: var(--border);
-    color: var(--text);
+    background: #6c757d;
+    color: white;
 }
 
 .btn-secondary:hover {
-    background: #adb5bd;
-    color: var(--text);
+    background: #5a6268;
 }
 
 .result {
     background: var(--secondary);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 0.4rem;
     padding: 1.5rem;
     margin-top: 1rem;
     line-height: 1.6;
@@ -319,8 +325,8 @@ table tr:nth-child(even) td {
     background: rgba(220, 53, 69, 0.1);
     border: 1px solid var(--danger);
     color: var(--danger);
-    border-radius: 8px;
-    padding: 1rem;
+    border-radius: 0.4rem;
+    padding: 0.875rem 1rem;
     margin-top: 1rem;
 }
 
@@ -332,19 +338,18 @@ table tr:nth-child(even) td {
 }
 
 .example-tag {
-    background: rgba(0, 212, 170, 0.1);
+    background: rgba(91, 103, 202, 0.1);
     border: 1px solid var(--primary);
     color: var(--primary);
-    padding: 0.5rem 1rem;
-    border-radius: 20px;
+    padding: 0.4rem 0.8rem;
+    border-radius: 0.3rem;
     cursor: pointer;
-    transition: all 0.2s;
     font-size: 0.9rem;
 }
 
 .example-tag:hover {
     background: var(--primary);
-    color: var(--light);
+    color: white;
 }
 
 .language-selector {
@@ -356,14 +361,13 @@ table tr:nth-child(even) td {
 }
 
 .swap-btn {
-    background: var(--border);
-    border: none;
+    background: #e9ecef;
+    border: 1px solid var(--border);
     color: var(--text);
     width: 40px;
     height: 40px;
     border-radius: 50%;
     cursor: pointer;
-    transition: all 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -372,8 +376,8 @@ table tr:nth-child(even) td {
 
 .swap-btn:hover {
     background: var(--primary);
-    color: var(--light);
-    transform: rotate(180deg);
+    color: white;
+    border-color: var(--primary);
 }
 
 .ai-avatar {
@@ -508,11 +512,11 @@ table tr:nth-child(even) td {
 .translate-box {
     display: flex;
     flex-direction: column;
-    background: var(--light);
+    background: white;
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 0.5rem;
     overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
 .translate-header {
@@ -557,9 +561,8 @@ table tr:nth-child(even) td {
 }
 
 .action-btn:hover {
-    background: rgba(0, 212, 170, 0.1);
+    background: rgba(91, 103, 202, 0.1);
     color: var(--primary);
-    transform: scale(1.1);
 }
 
 .translate-textarea {
@@ -636,11 +639,11 @@ table tr:nth-child(even) td {
 /* Chat conversation (ChatGPT-like) */
 /* ======================== */
 .chat-container {
-    background: var(--light);
+    background: white;
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 0.5rem;
     overflow: hidden;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
 .chat-header {
@@ -703,7 +706,7 @@ table tr:nth-child(even) td {
 }
 
 .user-avatar {
-    background: linear-gradient(135deg, var(--primary), var(--accent));
+    background: var(--primary);
     color: white;
 }
 
@@ -738,6 +741,39 @@ table tr:nth-child(even) td {
     color: var(--text);
     border-bottom-left-radius: 4px;
     border: 1px solid var(--border);
+}
+
+.message-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.message-wrapper:hover .message-actions {
+    opacity: 1;
+}
+
+.action-btn-sm {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+.action-btn-sm:hover {
+    background: var(--secondary);
+    color: var(--primary);
+    border-color: var(--primary);
+}
+
+.action-btn-sm i {
+    font-size: 0.9rem;
 }
 
 .chat-input-container {
@@ -785,13 +821,11 @@ table tr:nth-child(even) td {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.2s;
     flex-shrink: 0;
 }
 
 .chat-send-btn:hover {
-    background: #00b894;
-    transform: scale(1.05);
+    background: #4a56b8;
 }
 
 .chat-send-btn:active {

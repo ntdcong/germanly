@@ -125,78 +125,133 @@ $groups = $stmt->fetchAll();
         font-family: 'Inter', sans-serif;
         color: #333;
     }
-    .navbar {
-        background: linear-gradient(to right, #6f73ff, #48d9d6);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-        padding: 0.75rem 0;
+    .navbar, .modern-navbar {
+        background: #5b67ca;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        padding: 1rem 0;
     }
     .navbar-brand {
         font-weight: 700;
-        font-size: 1.6rem;
+        font-size: 1.5rem;
         color: white !important;
+        text-decoration: none;
+    }
+    .logout-btn {
+        color: white !important;
+        text-decoration: none;
+        font-weight: 500;
+        padding: 0.5rem 1rem;
+        border-radius: 0.4rem;
+        background: rgba(255, 255, 255, 0.15);
+    }
+    .logout-btn:hover {
+        background: rgba(255, 255, 255, 0.25);
     }
     .btn {
-        border-radius: 0.6rem !important;
+        border-radius: 0.4rem !important;
         font-weight: 500;
         padding: 0.5rem 1rem;
     }
-    .btn:hover {
-        opacity: 0.9;
+    .btn-success {
+        background: #28a745;
+        border: none;
+    }
+    .btn-primary {
+        background: #5b67ca;
+        border: none;
     }
     .import-card {
         background: #fff;
-        border-radius: 1.25rem;
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.05);
+        border-radius: 0.5rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         padding: 2rem;
-        margin-top: 2.5rem;
+        margin-top: 2rem;
         max-width: 820px;
         margin-left: auto;
         margin-right: auto;
-        transition: all 0.3s ease-in-out;
     }
-    h2, h5 {
+    h2 {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 1.5rem;
+    }
+    h2 i {
+        color: #5b67ca;
+    }
+    h5 {
         font-weight: 600;
         color: #333;
     }
     .link-input-group {
-        background: #f9f9f9;
-        border-radius: 1rem;
+        background: #f8f9fa;
+        border-radius: 0.5rem;
         padding: 1.25rem;
-        border: 1.5px dashed #c3c7d4;
+        border: 2px dashed #5b67ca;
     }
     .link-input-group label {
-        font-weight: 500;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.75rem;
     }
     .link-input-group input {
-        border-radius: 0.6rem;
-        border: 1px solid #ccc;
+        border-radius: 0.4rem;
+        border: 1px solid #ced4da;
         padding: 0.6rem 0.9rem;
     }
+    .link-input-group input:focus {
+        border-color: #5b67ca;
+        box-shadow: 0 0 0 0.15rem rgba(91, 103, 202, 0.15);
+    }
     .card {
-        border: none;
-        border-radius: 1.25rem;
-        box-shadow: 0 6px 16px rgba(0,0,0,0.05);
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        overflow: hidden;
+    }
+    .card-body {
+        padding: 1.5rem;
+    }
+    .card-body p {
+        margin-bottom: 0.75rem;
+        line-height: 1.6;
+    }
+    .card-body strong {
+        color: #5b67ca;
+        font-weight: 600;
     }
     .card-header {
-        background:rgb(134, 137, 241);
+        background: #5b67ca;
         color: white;
         font-weight: 600;
-        text: white;
-        border-top-left-radius: 1.25rem;
-        border-top-right-radius: 1.25rem;
+        border-top-left-radius: 0.5rem;
+        border-top-right-radius: 0.5rem;
+        padding: 0.875rem 1.125rem;
+    }
+    .card-header h5 {
+        color: white;
+        margin: 0;
+        font-size: 1rem;
     }
     .form-control, .form-select {
-        border-radius: 0.6rem;
-        border: 1px solid #ccc;
-        padding: 0.6rem 0.8rem;
+        border-radius: 0.4rem;
+        border: 1px solid #ced4da;
+        padding: 0.6rem 0.9rem;
+        font-size: 0.95rem;
+    }
+    .form-control:focus, .form-select:focus {
+        border-color: #5b67ca;
+        box-shadow: 0 0 0 0.15rem rgba(91, 103, 202, 0.15);
+        outline: none;
     }
     .form-label {
-        font-weight: 500;
-        margin-bottom: 0.4rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #333;
     }
     .alert {
-        border-radius: 0.6rem;
+        border-radius: 0.4rem;
         font-size: 0.95rem;
+        padding: 0.875rem 1rem;
     }
     textarea.form-control {
         resize: vertical;
@@ -212,19 +267,16 @@ $groups = $stmt->fetchAll();
 </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark">
-        <div class="container">
-            <a class="navbar-brand" href="home.php">GERMANLY</a>
-            <div class="d-flex gap-2">
-                <a href="dashboard.php" class="btn btn-outline-light btn-sm">
-                    <i class="bi bi-journals me-1"></i> Sổ tay
-                </a>
-                <a href="logout.php" class="btn btn-outline-danger btn-sm">
-                    <i class="bi bi-box-arrow-right me-1"></i> Đăng xuất
-                </a>
-            </div>
-        </div>
-    </nav>
+    <?php
+    $navbar_config = [
+        'type' => 'main',
+        'show_logout' => true,
+        'brand_link' => 'home.php',
+        'extra_class' => 'navbar-expand-lg navbar-dark',
+        'show_brand' => true
+    ];
+    include 'includes/navbar.php';
+    ?>
 
     <div class="container mt-5 mb-5">
         <div class="import-card">
@@ -281,8 +333,7 @@ $groups = $stmt->fetchAll();
 
                     <div class="mb-3">
                         <label class="form-label">Mô tả</label>
-                        <textarea name="description" class="form-control" rows="3">
-<?= htmlspecialchars($notebook['description']) ?></textarea>
+                        <textarea name="description" class="form-control" rows="3"><?= htmlspecialchars($notebook['description']) ?></textarea>
                     </div>
 
                     <div class="mb-3">
