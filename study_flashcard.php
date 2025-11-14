@@ -260,9 +260,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_status' && $_SERVER['R
             <div class="swipe-indicator right">Đã biết</div>
             <div class="card-inner">
                 <div class="card-front">
-                    <div id="word-display">${escapeHtml(vocab.word)}</div>
-                    ${vocab.phonetic ? `<div class="phonetic">[${escapeHtml(vocab.phonetic)}]</div>` : ''}
-                    <button class="btn btn-sm btn-outline-primary mt-2 btn-audio">
+                    <div class="card-front-content">
+                        <div id="word-display" class="card-front-word">${escapeHtml(vocab.word)}</div>
+                        ${vocab.phonetic ? `<div class="phonetic">[${escapeHtml(vocab.phonetic)}]</div>` : ''}
+                    </div>
+                    <button class="btn btn-sm btn-outline-primary mt-2 btn-audio align-self-center">
                         <i class="bi bi-volume-up"></i> Nghe
                     </button>
                 </div>
@@ -339,6 +341,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_status' && $_SERVER['R
                     if (i === 1) cardEl.classList.add('card--next');
                     if (i === 0) cardEl.classList.add('card--after-next');
                     cardStack.appendChild(cardEl);
+                    fitCardFront(cardEl);
+                    fitCardBack(cardEl);
                 });
 
                 updateUI();
@@ -454,6 +458,115 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_status' && $_SERVER['R
                 return str.replace(/(\r\n|\r|\n)/g, '<br>');
             }
 
+            function fitCardFace(cardElement, faceSelector, options = {}) {
+                requestAnimationFrame(() => {
+                    const faceEl = cardElement.querySelector(faceSelector);
+                    if (!faceEl) return;
+
+                    const {
+                        resizableSelectors = [],
+                        minFontSize = 8,
+                        maxIterations = 40,
+                        scaleStep = 0.92,
+                        gapReduction = null,
+                        paddingReduction = null
+                    } = options;
+
+                    const resizableEls = [];
+                    resizableSelectors.forEach(selector => {
+                        Array.from(faceEl.querySelectorAll(selector)).forEach(el => {
+                            if (el) {
+                                resizableEls.push(el);
+                            }
+                        });
+                    });
+
+                    const uniqueResizableEls = Array.from(new Set(resizableEls));
+                    if (!uniqueResizableEls.length) return;
+
+                    uniqueResizableEls.forEach(el => {
+                        el.style.fontSize = '';
+                    });
+
+                    if (gapReduction !== null) {
+                        faceEl.style.gap = '';
+                    }
+
+                    if (paddingReduction !== null) {
+                        faceEl.style.padding = '';
+                    }
+
+                    const baseSizes = uniqueResizableEls.map(el => {
+                        const computed = parseFloat(getComputedStyle(el).fontSize);
+                        return Number.isNaN(computed) ? null : computed;
+                    });
+
+                    uniqueResizableEls.forEach((el, index) => {
+                        const size = baseSizes[index];
+                        if (size) {
+                            el.style.fontSize = `${size}px`;
+                        }
+                    });
+
+                    let iterations = 0;
+                    let gapAdjusted = gapReduction === null;
+                    let paddingAdjusted = paddingReduction === null;
+
+                    while (faceEl.scrollHeight > faceEl.clientHeight && iterations < maxIterations) {
+                        let spacingAdjusted = false;
+
+                        if (!paddingAdjusted) {
+                            faceEl.style.padding = paddingReduction;
+                            paddingAdjusted = true;
+                            spacingAdjusted = true;
+                        }
+
+                        if (!gapAdjusted) {
+                            faceEl.style.gap = gapReduction;
+                            gapAdjusted = true;
+                            spacingAdjusted = true;
+                        }
+
+                        if (spacingAdjusted) {
+                            iterations++;
+                            continue;
+                        }
+
+                        let fontAdjusted = false;
+
+                        uniqueResizableEls.forEach(el => {
+                            const currentSize = parseFloat(getComputedStyle(el).fontSize);
+                            if (currentSize > minFontSize) {
+                                const nextSize = Math.max(minFontSize, currentSize * scaleStep);
+                                el.style.fontSize = `${nextSize}px`;
+                                fontAdjusted = true;
+                            }
+                        });
+
+                        if (!fontAdjusted) {
+                            break;
+                        }
+
+                        iterations++;
+                    }
+                });
+            }
+
+            function fitCardFront(cardElement) {
+                fitCardFace(cardElement, '.card-front', {
+                    resizableSelectors: ['.card-front-word', '.phonetic'],
+                    gapReduction: '6px',
+                    paddingReduction: '16px 14px'
+                });
+            }
+
+            function fitCardBack(cardElement) {
+                fitCardFace(cardElement, '.card-back', {
+                    resizableSelectors: ['.card-back-content'],
+                    paddingReduction: '18px 14px'
+                });
+            }
+
             function openConjugationModal(word) {
                 document.getElementById('modal-word').textContent = word;
                 
@@ -554,6 +667,13 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_status' && $_SERVER['R
                     content.style.display = 'none';
                     icon.className = 'bi bi-eye-slash';
                 }
+            });
+
+            window.addEventListener('resize', () => {
+                document.querySelectorAll('#cardStack .flashcard').forEach(card => {
+                    fitCardFront(card);
+                    fitCardBack(card);
+                });
             });
 
             // Keyboard shortcuts

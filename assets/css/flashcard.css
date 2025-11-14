@@ -179,7 +179,7 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 30px 25px;
+    padding: 22px 18px;
     text-align: center;
     overflow: hidden;
 }
@@ -201,27 +201,69 @@ body {
 
 .card-back-content {
     width: 100%;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75em;
 }
 
-.card-front #word-display {
-    font-size: 2.2rem;
+.card-front {
+    justify-content: center;
+    align-items: center;
+    gap: 0.65em;
+}
+
+.card-front-content {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5em;
+    width: 100%;
+    text-align: center;
+}
+
+.card-front-word {
+    font-size: clamp(1.2rem, 2.4vw + 1rem, 2.3rem);
     font-weight: 700;
     color: #2d3748;
-    margin-bottom: 10px;
+    line-height: 1.4;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    margin: 0;
 }
 
 .card-front .phonetic {
     font-size: 1.1rem;
     color: #718096;
-    margin-bottom: 20px;
+    margin: 0;
+    line-height: 1.25;
+}
+
+.card-front .btn-audio {
+    flex-shrink: 0;
+    margin-top: auto;
 }
 
 .card-back .vocab-info {
-    margin-bottom: 15px;
+    margin-bottom: 0;
+    line-height: 1.45;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    width: 100%;
+    text-align: center;
 }
 
 .card-back .vocab-info strong {
     color: #4a5568;
+}
+
+.card-back-content button {
+    align-self: center;
+    margin-top: 0.5em;
 }
 
 .swipe-indicator {
@@ -411,8 +453,8 @@ body {
         height: 300px;
     }
 
-    .card-front #word-display {
-        font-size: 2.5rem;
+    .card-front-word {
+        font-size: clamp(1.6rem, 1.5vw + 1.2rem, 2.4rem);
     }
 
     .action-buttons {
@@ -439,8 +481,8 @@ body {
         height: 240px;
     }
 
-    .card-front #word-display {
-        font-size: 1.8rem;
+    .card-front-word {
+        font-size: clamp(1.15rem, 4vw + 0.8rem, 2rem);
     }
 
     .card-front .phonetic {
