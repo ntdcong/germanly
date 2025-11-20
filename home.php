@@ -168,6 +168,9 @@ if (!isset($_SESSION['user_id'])) {
             <a href="basic_knowledge.php" class="option-btn">
                 <i class="bi bi-book"></i> Kiến Thức Căn Bản
             </a>
+            <a href="study_grammar.php" class="option-btn"">
+                <i class="bi bi-mortarboard"></i> Học Ngữ Pháp
+            </a>
             <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin'): ?>
             <a href="admin_dashboard.php" class="option-btn" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);">
                 <i class="bi bi-shield-check"></i> Admin Dashboard

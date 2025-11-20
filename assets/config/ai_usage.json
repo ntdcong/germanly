@@ -1,11 +1,11 @@
 {
-    "2025-10-07": {
+    "2025-11-20": {
         "translate": 0,
-        "vocabulary": 3,
-        "conjugation": 1,
-        "chat": 2,
+        "vocabulary": 0,
+        "conjugation": 0,
+        "chat": 3,
         "models": {
-            "llama-3.1-8b-instant": 6
+            "llama-3.1-8b-instant": 3
         }
     }
 }
